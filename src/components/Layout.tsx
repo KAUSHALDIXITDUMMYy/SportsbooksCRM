@@ -1,0 +1,108 @@
+import React from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import { 
+  LayoutDashboard, 
+  Users, 
+  CreditCard, 
+  UserPlus, 
+  Settings, 
+  LogOut,
+  Zap
+} from 'lucide-react';
+
+interface LayoutProps {
+  children: React.ReactNode;
+}
+
+export default function Layout({ children }: LayoutProps) {
+  const { userData, logout } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login');
+  };
+
+  const adminNavItems = [
+    { path: '/admin/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+    { path: '/admin/agents', icon: Users, label: 'Agents' },
+    { path: '/admin/accounts', icon: CreditCard, label: 'Accounts' },
+    { path: '/admin/players', icon: UserPlus, label: 'Players' },
+    { path: '/admin/assignments', icon: Settings, label: 'Assignments' },
+  ];
+
+  const playerNavItems = [
+    { path: '/player/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+  ];
+
+  const navItems = userData?.role === 'admin' ? adminNavItems : playerNavItems;
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+      {/* Animated Background */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-purple-500 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-pulse"></div>
+        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-cyan-500 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-pulse animation-delay-2000"></div>
+      </div>
+
+      <div className="relative z-10 flex">
+        {/* Sidebar */}
+        <div className="w-64 bg-black/20 backdrop-blur-lg border-r border-purple-500/20 h-screen fixed left-0 top-0">
+          <div className="p-6">
+            <div className="flex items-center space-x-2 mb-8">
+              <Zap className="w-8 h-8 text-cyan-400" />
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">
+                sportsbookcrm
+              </h1>
+            </div>
+            
+            <nav className="space-y-2">
+              {navItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = location.pathname === item.path;
+                return (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-all duration-200 ${
+                      isActive
+                        ? 'bg-gradient-to-r from-cyan-500/20 to-purple-500/20 text-cyan-400 border border-cyan-500/30'
+                        : 'text-gray-300 hover:text-cyan-400 hover:bg-white/5'
+                    }`}
+                  >
+                    <Icon className="w-5 h-5" />
+                    <span className="font-medium">{item.label}</span>
+                  </Link>
+                );
+              })}
+            </nav>
+          </div>
+          
+          <div className="absolute bottom-6 left-6 right-6">
+            <div className="bg-white/5 backdrop-blur-sm rounded-lg p-4 mb-4">
+              <p className="text-sm text-gray-300">Logged in as</p>
+              <p className="text-cyan-400 font-medium">{userData?.name || userData?.email}</p>
+              <p className="text-xs text-purple-400 capitalize">{userData?.role}</p>
+            </div>
+            <button
+              onClick={handleLogout}
+              className="flex items-center space-x-2 w-full px-4 py-2 text-gray-300 hover:text-red-400 transition-colors"
+            >
+              <LogOut className="w-4 h-4" />
+              <span>Logout</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Main Content */}
+        <div className="flex-1 ml-64">
+          <div className="p-8">
+            {children}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
