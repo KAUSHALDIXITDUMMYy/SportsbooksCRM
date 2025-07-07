@@ -67,7 +67,9 @@ export default function Layout({ children }: LayoutProps) {
             <div className="flex items-center space-x-2 mb-8">
               <Zap className="w-8 h-8 text-cyan-400" />
               <h1 className="text-2xl font-bold bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">
-                vjack.co
+              sportsmagician1
+
+
               </h1>
             </div>
             

@@ -53,7 +53,7 @@ export default function Login() {
               <Zap className="w-12 h-12 text-cyan-400" />
             </div>
             <h1 className="text-3xl font-bold bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent mb-2">
-            sportsbookcrm.com
+            sportsmagician1.com
             </h1>
             <p className="text-gray-300">Welcome back to your dashboard</p>
           </div>
