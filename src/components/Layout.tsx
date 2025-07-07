@@ -8,7 +8,9 @@ import {
   UserPlus, 
   Settings, 
   LogOut,
-  Zap
+  Zap,
+  Menu,
+  X
 } from 'lucide-react';
 
 interface LayoutProps {
@@ -19,6 +21,7 @@ export default function Layout({ children }: LayoutProps) {
   const { userData, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+  const [sidebarOpen, setSidebarOpen] = React.useState(false);
 
   const handleLogout = async () => {
     await logout();
@@ -48,13 +51,23 @@ export default function Layout({ children }: LayoutProps) {
       </div>
 
       <div className="relative z-10 flex">
+        {/* Mobile Menu Button */}
+        <button
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+          className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-black/20 backdrop-blur-lg rounded-lg border border-purple-500/20 text-white"
+        >
+          {sidebarOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+        </button>
+
         {/* Sidebar */}
-        <div className="w-64 bg-black/20 backdrop-blur-lg border-r border-purple-500/20 h-screen fixed left-0 top-0">
+        <div className={`w-64 bg-black/20 backdrop-blur-lg border-r border-purple-500/20 h-screen fixed left-0 top-0 transform transition-transform duration-300 ease-in-out z-40 ${
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        } lg:translate-x-0`}>
           <div className="p-6">
             <div className="flex items-center space-x-2 mb-8">
               <Zap className="w-8 h-8 text-cyan-400" />
               <h1 className="text-2xl font-bold bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">
-                sportsbookcrm
+                vjack.co
               </h1>
             </div>
             
@@ -66,6 +79,7 @@ export default function Layout({ children }: LayoutProps) {
                   <Link
                     key={item.path}
                     to={item.path}
+                    onClick={() => setSidebarOpen(false)}
                     className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-all duration-200 ${
                       isActive
                         ? 'bg-gradient-to-r from-cyan-500/20 to-purple-500/20 text-cyan-400 border border-cyan-500/30'
@@ -83,7 +97,7 @@ export default function Layout({ children }: LayoutProps) {
           <div className="absolute bottom-6 left-6 right-6">
             <div className="bg-white/5 backdrop-blur-sm rounded-lg p-4 mb-4">
               <p className="text-sm text-gray-300">Logged in as</p>
-              <p className="text-cyan-400 font-medium">{userData?.name || userData?.email}</p>
+              <p className="text-cyan-400 font-medium truncate">{userData?.name || userData?.email}</p>
               <p className="text-xs text-purple-400 capitalize">{userData?.role}</p>
             </div>
             <button
@@ -96,9 +110,17 @@ export default function Layout({ children }: LayoutProps) {
           </div>
         </div>
 
+        {/* Overlay for mobile */}
+        {sidebarOpen && (
+          <div
+            className="lg:hidden fixed inset-0 bg-black/50 z-30"
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
+
         {/* Main Content */}
-        <div className="flex-1 ml-64">
-          <div className="p-8">
+        <div className="flex-1 lg:ml-64">
+          <div className="p-4 lg:p-8 pt-16 lg:pt-8">
             {children}
           </div>
         </div>

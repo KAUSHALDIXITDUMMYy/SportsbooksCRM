@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { collection, addDoc, getDocs, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
-import { Plus, Users, Trash2, Edit, Save, X } from 'lucide-react';
+import { Plus, Users, Trash2, Edit, Save, X, Search } from 'lucide-react';
 
 interface Agent {
   id: string;
@@ -12,6 +12,8 @@ interface Agent {
 
 export default function Agents() {
   const [agents, setAgents] = useState<Agent[]>([]);
+  const [filteredAgents, setFilteredAgents] = useState<Agent[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingAgent, setEditingAgent] = useState<Agent | null>(null);
   const [newAgent, setNewAgent] = useState({
@@ -23,6 +25,14 @@ export default function Agents() {
   useEffect(() => {
     fetchAgents();
   }, []);
+
+  useEffect(() => {
+    // Filter agents based on search term
+    const filtered = agents.filter(agent =>
+      agent.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+    setFilteredAgents(filtered);
+  }, [agents, searchTerm]);
 
   const fetchAgents = async () => {
     try {
@@ -106,19 +116,35 @@ export default function Agents() {
         </button>
       </div>
 
+      {/* Search Bar */}
+      <div className="relative">
+        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+          <Search className="h-5 w-5 text-gray-400" />
+        </div>
+        <input
+          type="text"
+          placeholder="Search agents..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="w-full pl-10 pr-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+        />
+      </div>
+
       {/* Agents Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {loading ? (
           <div className="col-span-full text-center py-12">
             <div className="text-gray-400">Loading agents...</div>
           </div>
-        ) : agents.length === 0 ? (
+        ) : filteredAgents.length === 0 ? (
           <div className="col-span-full text-center py-12">
             <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-400">No agents found. Create your first agent!</p>
+            <p className="text-gray-400">
+              {searchTerm ? 'No agents found matching your search.' : 'No agents found. Create your first agent!'}
+            </p>
           </div>
         ) : (
-          agents.map((agent) => (
+          filteredAgents.map((agent) => (
             <div
               key={agent.id}
               className="bg-black/20 backdrop-blur-sm rounded-xl p-6 border border-purple-500/20 hover:scale-105 transition-transform duration-200"
@@ -134,16 +160,19 @@ export default function Agents() {
                   />
                   <div>
                     <label className="block text-sm text-gray-400 mb-1">Commission %</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      max="100"
-                      value={editingAgent.commissionPercentage}
-                      onChange={(e) => setEditingAgent({ ...editingAgent, commissionPercentage: parseFloat(e.target.value) || 0 })}
-                      className="w-full px-3 py-2 bg-white/5 border border-purple-500/20 rounded-lg text-white"
-                      required
-                    />
+                    <div className="relative">
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max="100"
+                        value={editingAgent.commissionPercentage}
+                        onChange={(e) => setEditingAgent({ ...editingAgent, commissionPercentage: parseFloat(e.target.value) || 0 })}
+                        className="w-full px-3 py-2 pr-8 bg-white/5 border border-purple-500/20 rounded-lg text-white"
+                        required
+                      />
+                      <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400">%</span>
+                    </div>
                   </div>
                   <div className="flex space-x-2">
                     <button
@@ -223,17 +252,20 @@ export default function Agents() {
                 <label className="block text-sm font-medium text-gray-300 mb-2">
                   Commission Percentage (%)
                 </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  max="100"
-                  value={newAgent.commissionPercentage}
-                  onChange={(e) => setNewAgent({ ...newAgent, commissionPercentage: parseFloat(e.target.value) || 0 })}
-                  className="w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-400"
-                  placeholder="Enter commission percentage"
-                  required
-                />
+                <div className="relative">
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max="100"
+                    value={newAgent.commissionPercentage}
+                    onChange={(e) => setNewAgent({ ...newAgent, commissionPercentage: parseFloat(e.target.value) || 0 })}
+                    className="w-full px-4 py-3 pr-8 bg-white/5 border border-purple-500/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                    placeholder="Enter commission percentage"
+                    required
+                  />
+                  <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400">%</span>
+                </div>
               </div>
               <div className="flex justify-end space-x-4 mt-6">
                 <button

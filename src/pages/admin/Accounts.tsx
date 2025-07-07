@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { collection, addDoc, getDocs, deleteDoc, doc, query, where, updateDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
-import { Plus, CreditCard, Trash2, Edit, ExternalLink, Save, X, BarChart3 } from 'lucide-react';
+import { Plus, CreditCard, Trash2, Edit, ExternalLink, Save, X, BarChart3, Search } from 'lucide-react';
 
 interface Account {
   id: string;
@@ -32,6 +32,8 @@ interface Agent {
 
 export default function Accounts() {
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [filteredAccounts, setFilteredAccounts] = useState<Account[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
   const [agents, setAgents] = useState<Agent[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
@@ -55,6 +57,30 @@ export default function Accounts() {
     fetchAccounts();
     fetchAgents();
   }, []);
+
+  useEffect(() => {
+    // Filter accounts based on search term and filter
+    let filtered = accounts;
+    
+    // Apply search filter
+    if (searchTerm) {
+      filtered = filtered.filter(account => {
+        const searchableText = `${account.type === 'pph' ? account.username : account.name} ${account.agentName}`.toLowerCase();
+        return searchableText.includes(searchTerm.toLowerCase());
+      });
+    }
+    
+    // Apply status/type filter
+    if (filter !== 'all') {
+      if (filter === 'active' || filter === 'inactive') {
+        filtered = filtered.filter(account => account.status === filter);
+      } else if (filter === 'pph' || filter === 'legal') {
+        filtered = filtered.filter(account => account.type === filter);
+      }
+    }
+    
+    setFilteredAccounts(filtered);
+  }, [accounts, searchTerm, filter]);
 
   const fetchAccounts = async () => {
     try {
@@ -196,13 +222,6 @@ export default function Accounts() {
     }
   };
 
-  const filteredAccounts = accounts.filter(account => {
-    if (filter === 'all') return true;
-    if (filter === 'active' || filter === 'inactive') return account.status === filter;
-    if (filter === 'pph' || filter === 'legal') return account.type === filter;
-    return true;
-  });
-
   const accountStats = {
     total: accounts.length,
     active: accounts.filter(a => a.status === 'active').length,
@@ -280,6 +299,20 @@ export default function Accounts() {
         </div>
       </div>
 
+      {/* Search Bar */}
+      <div className="relative">
+        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+          <Search className="h-5 w-5 text-gray-400" />
+        </div>
+        <input
+          type="text"
+          placeholder="Search accounts..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="w-full pl-10 pr-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+        />
+      </div>
+
       {/* Filters */}
       <div className="flex space-x-4">
         {['all', 'active', 'inactive', 'pph', 'legal'].map((filterOption) => (
@@ -306,7 +339,9 @@ export default function Accounts() {
         ) : filteredAccounts.length === 0 ? (
           <div className="col-span-full text-center py-12">
             <CreditCard className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-400">No accounts found. Create your first account!</p>
+            <p className="text-gray-400">
+              {searchTerm || filter !== 'all' ? 'No accounts found matching your criteria.' : 'No accounts found. Create your first account!'}
+            </p>
           </div>
         ) : (
           filteredAccounts.map((account) => (
@@ -375,14 +410,17 @@ export default function Accounts() {
                         placeholder="Account Name"
                         className="w-full px-3 py-2 bg-white/5 border border-purple-500/20 rounded-lg text-white text-sm"
                       />
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={editingAccount.sharePercentage || 0}
-                        onChange={(e) => setEditingAccount({ ...editingAccount, sharePercentage: parseFloat(e.target.value) || 0 })}
-                        placeholder="Share %"
-                        className="w-full px-3 py-2 bg-white/5 border border-purple-500/20 rounded-lg text-white text-sm"
-                      />
+                      <div className="relative">
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={editingAccount.sharePercentage || 0}
+                          onChange={(e) => setEditingAccount({ ...editingAccount, sharePercentage: parseFloat(e.target.value) || 0 })}
+                          placeholder="Share %"
+                          className="w-full px-3 py-2 pr-8 bg-white/5 border border-purple-500/20 rounded-lg text-white text-sm"
+                        />
+                        <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400">%</span>
+                      </div>
                       <input
                         type="number"
                         step="0.01"
@@ -621,16 +659,19 @@ export default function Accounts() {
                     <label className="block text-sm font-medium text-gray-300 mb-2">
                       Share Percentage (%)
                     </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      max="100"
-                      value={newAccount.sharePercentage}
-                      onChange={(e) => setNewAccount({ ...newAccount, sharePercentage: parseFloat(e.target.value) || 0 })}
-                      className="w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-400"
-                      placeholder="Enter share percentage"
-                    />
+                    <div className="relative">
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max="100"
+                        value={newAccount.sharePercentage}
+                        onChange={(e) => setNewAccount({ ...newAccount, sharePercentage: parseFloat(e.target.value) || 0 })}
+                        className="w-full px-4 py-3 pr-8 bg-white/5 border border-purple-500/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                        placeholder="Enter share percentage"
+                      />
+                      <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400">%</span>
+                    </div>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-300 mb-2">

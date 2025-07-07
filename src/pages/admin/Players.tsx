@@ -3,7 +3,7 @@ import { collection, getDocs, query, where, doc, updateDoc, deleteDoc } from 'fi
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc as firestoreDoc, setDoc } from 'firebase/firestore';
 import { db, auth } from '../../firebase';
-import { Plus, UserPlus, Trash2, Edit, Save, X } from 'lucide-react';
+import { Plus, UserPlus, Trash2, Edit, Save, X, Search } from 'lucide-react';
 
 interface Player {
   id: string;
@@ -16,6 +16,8 @@ interface Player {
 
 export default function Players() {
   const [players, setPlayers] = useState<Player[]>([]);
+  const [filteredPlayers, setFilteredPlayers] = useState<Player[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
   const [newPlayer, setNewPlayer] = useState({
@@ -28,6 +30,15 @@ export default function Players() {
   useEffect(() => {
     fetchPlayers();
   }, []);
+
+  useEffect(() => {
+    // Filter players based on search term
+    const filtered = players.filter(player =>
+      player.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      player.email.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+    setFilteredPlayers(filtered);
+  }, [players, searchTerm]);
 
   const fetchPlayers = async () => {
     try {
@@ -121,19 +132,35 @@ export default function Players() {
         </button>
       </div>
 
+      {/* Search Bar */}
+      <div className="relative">
+        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+          <Search className="h-5 w-5 text-gray-400" />
+        </div>
+        <input
+          type="text"
+          placeholder="Search players..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="w-full pl-10 pr-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+        />
+      </div>
+
       {/* Players Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {loading ? (
           <div className="col-span-full text-center py-12">
             <div className="text-gray-400">Loading players...</div>
           </div>
-        ) : players.length === 0 ? (
+        ) : filteredPlayers.length === 0 ? (
           <div className="col-span-full text-center py-12">
             <UserPlus className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-400">No players found. Create your first player!</p>
+            <p className="text-gray-400">
+              {searchTerm ? 'No players found matching your search.' : 'No players found. Create your first player!'}
+            </p>
           </div>
         ) : (
-          players.map((player) => (
+          filteredPlayers.map((player) => (
             <div
               key={player.id}
               className="bg-black/20 backdrop-blur-sm rounded-xl p-6 border border-purple-500/20 hover:scale-105 transition-transform duration-200"
