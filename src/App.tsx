@@ -4,7 +4,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Layout from './components/Layout';
 import Login from './pages/Login';
-
+import { useAuth } from './contexts/AuthContext';
 // Admin Pages
 import AdminDashboard from './pages/admin/Dashboard';
 import Agents from './pages/admin/Agents';
@@ -26,7 +26,7 @@ function App() {
             path="/"
             element={
               <ProtectedRoute>
-                <Navigate to="/admin/dashboard" />
+                <RoleBasedRedirect />
               </ProtectedRoute>
             }
           />
@@ -108,6 +108,20 @@ function App() {
       </Router>
     </AuthProvider>
   );
+}
+
+// Component to handle role-based redirection
+function RoleBasedRedirect() {
+  const { userData } = useAuth();
+  
+  if (userData?.role === 'admin') {
+    return <Navigate to="/admin/dashboard" replace />;
+  } else if (userData?.role === 'player') {
+    return <Navigate to="/player/dashboard" replace />;
+  }
+  
+  // Fallback - shouldn't reach here if auth is working properly
+  return <Navigate to="/login" replace />;
 }
 
 export default App;

@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { collection, getDocs, query, where, doc, setDoc, deleteDoc } from 'firebase/firestore';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { useAuth } from '../contexts/AuthContext';
+import { db, auth } from '../firebase';
 import { Zap, Eye, EyeOff } from 'lucide-react';
 
 export default function Login() {
@@ -18,11 +21,48 @@ export default function Login() {
     setLoading(true);
 
     try {
-      await login(email, password);
-      navigate('/');
-      // Navigation will be handled by useEffect in App.tsx based on user role
+      // First try normal login
+      try {
+        await login(email, password);
+        // Navigation will be handled by useEffect in App.tsx based on user role
+      } catch (loginError) {
+        // If login fails, check if this is a pending player account
+        const pendingPlayerQuery = query(
+          collection(db, 'players'),
+          where('email', '==', email),
+          where('password', '==', password),
+          where('status', '==', 'pending')
+        );
+        const pendingPlayerSnapshot = await getDocs(pendingPlayerQuery);
+        
+        if (pendingPlayerSnapshot.docs.length > 0) {
+          // Found a pending player account, activate it
+          const playerData = pendingPlayerSnapshot.docs[0].data();
+          
+          // Create Firebase Auth account
+          const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+          const user = userCredential.user;
+          
+          // Create user document in Firestore
+          await setDoc(doc(db, 'users', user.uid), {
+            uid: user.uid,
+            email: user.email,
+            name: playerData.name,
+            role: 'player',
+            createdAt: new Date(),
+            activatedAt: new Date()
+          });
+          
+          // Delete the pending player record
+          await deleteDoc(pendingPlayerSnapshot.docs[0].ref);
+          
+          // The auth state change will handle navigation
+        } else {
+          throw loginError; // Re-throw the original login error
+        }
+      }
     } catch (err) {
-      setError('Invalid email or password');
+      setError('Invalid email or password. If you are a new player, please contact your administrator.');
     } finally {
       setLoading(false);
     }
@@ -30,11 +70,8 @@ export default function Login() {
 
   React.useEffect(() => {
     if (userData) {
-      if (userData.role === 'admin') {
-        navigate('/admin/dashboard');
-      } else {
-        navigate('/player/dashboard');
-      }
+      // Let the ProtectedRoute handle the redirection
+      navigate('/');
     }
   }, [userData, navigate]);
 
@@ -53,7 +90,7 @@ export default function Login() {
               <Zap className="w-12 h-12 text-cyan-400" />
             </div>
             <h1 className="text-3xl font-bold bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent mb-2">
-            sportsmagician1.com
+              vjack.co
             </h1>
             <p className="text-gray-300">Welcome back to your dashboard</p>
           </div>

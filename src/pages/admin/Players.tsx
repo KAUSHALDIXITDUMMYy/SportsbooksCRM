@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { collection, getDocs, query, where, doc, updateDoc, deleteDoc } from 'firebase/firestore';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc as firestoreDoc, setDoc } from 'firebase/firestore';
-import { db, auth } from '../../firebase';
-import { Plus, UserPlus, Trash2, Edit, Save, X, Search } from 'lucide-react';
+import { doc as firestoreDoc, setDoc, addDoc } from 'firebase/firestore';
+import { db } from '../../firebase';
+import { Plus, UserPlus, Trash2, Edit, Save, X, Search, ChevronDown, ChevronUp, UserCheck, UserX } from 'lucide-react';
 
 interface Player {
   id: string;
@@ -12,11 +11,14 @@ interface Player {
   name: string;
   role: string;
   createdAt: Date;
+  status?: string; // For inactive players
 }
 
 export default function Players() {
-  const [players, setPlayers] = useState<Player[]>([]);
-  const [filteredPlayers, setFilteredPlayers] = useState<Player[]>([]);
+  const [activePlayers, setActivePlayers] = useState<Player[]>([]);
+  const [inactivePlayers, setInactivePlayers] = useState<Player[]>([]);
+  const [filteredActivePlayers, setFilteredActivePlayers] = useState<Player[]>([]);
+  const [filteredInactivePlayers, setFilteredInactivePlayers] = useState<Player[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
@@ -26,6 +28,8 @@ export default function Players() {
     name: ''
   });
   const [loading, setLoading] = useState(true);
+  const [activePlayersExpanded, setActivePlayersExpanded] = useState(true);
+  const [inactivePlayersExpanded, setInactivePlayersExpanded] = useState(true);
 
   useEffect(() => {
     fetchPlayers();
@@ -33,23 +37,42 @@ export default function Players() {
 
   useEffect(() => {
     // Filter players based on search term
-    const filtered = players.filter(player =>
+    const filteredActive = activePlayers.filter(player =>
       player.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       player.email.toLowerCase().includes(searchTerm.toLowerCase())
     );
-    setFilteredPlayers(filtered);
-  }, [players, searchTerm]);
+    setFilteredActivePlayers(filteredActive);
+
+    const filteredInactive = inactivePlayers.filter(player =>
+      player.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      player.email.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+    setFilteredInactivePlayers(filteredInactive);
+  }, [activePlayers, inactivePlayers, searchTerm]);
 
   const fetchPlayers = async () => {
     try {
-      const playersQuery = query(collection(db, 'users'), where('role', '==', 'player'));
-      const playersSnapshot = await getDocs(playersQuery);
-      const playersData = playersSnapshot.docs.map(doc => ({
+      setLoading(true);
+      
+      // Fetch active players (from users collection)
+      const activeQuery = query(collection(db, 'users'), where('role', '==', 'player'));
+      const activeSnapshot = await getDocs(activeQuery);
+      const activeData = activeSnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
         createdAt: doc.data().createdAt?.toDate() || new Date()
       })) as Player[];
-      setPlayers(playersData);
+      setActivePlayers(activeData);
+
+      // Fetch inactive players (from players collection)
+      const inactiveQuery = query(collection(db, 'players'));
+      const inactiveSnapshot = await getDocs(inactiveQuery);
+      const inactiveData = inactiveSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        createdAt: doc.data().createdAt?.toDate() || new Date()
+      })) as Player[];
+      setInactivePlayers(inactiveData);
     } catch (error) {
       console.error('Error fetching players:', error);
     } finally {
@@ -62,16 +85,13 @@ export default function Players() {
     if (!newPlayer.email || !newPlayer.password || !newPlayer.name) return;
 
     try {
-      // Create user with Firebase Auth
-      const userCredential = await createUserWithEmailAndPassword(auth, newPlayer.email, newPlayer.password);
-      const user = userCredential.user;
-      
-      // Create user document in Firestore
-      await setDoc(firestoreDoc(db, 'users', user.uid), {
-        uid: user.uid,
-        email: user.email,
+      // Create player in the players collection (inactive)
+      await addDoc(collection(db, 'players'), {
+        email: newPlayer.email,
+        password: newPlayer.password, // Note: In production, this should be hashed
         name: newPlayer.name,
         role: 'player',
+        status: 'pending',
         createdAt: new Date()
       });
       
@@ -80,7 +100,6 @@ export default function Players() {
       fetchPlayers();
     } catch (error) {
       console.error('Error adding player:', error);
-      alert('Error creating player. Please try again.');
     }
   };
 
@@ -89,7 +108,9 @@ export default function Players() {
     if (!editingPlayer || !editingPlayer.name.trim()) return;
 
     try {
-      await updateDoc(doc(db, 'users', editingPlayer.uid), {
+      // Determine which collection to update based on player status
+      const collectionName = editingPlayer.status ? 'players' : 'users';
+      await updateDoc(doc(db, collectionName, editingPlayer.id), {
         name: editingPlayer.name.trim(),
         email: editingPlayer.email.trim(),
         updatedAt: new Date()
@@ -101,13 +122,39 @@ export default function Players() {
     }
   };
 
-  const handleDeletePlayer = async (playerUid: string) => {
+  const handleDeletePlayer = async (playerId: string, isActive: boolean) => {
     if (window.confirm('Are you sure you want to delete this player? This action cannot be undone.')) {
       try {
-        await deleteDoc(doc(db, 'users', playerUid));
+        // Delete from appropriate collection
+        const collectionName = isActive ? 'users' : 'players';
+        await deleteDoc(doc(db, collectionName, playerId));
         fetchPlayers();
       } catch (error) {
         console.error('Error deleting player:', error);
+      }
+    }
+  };
+
+  const activatePlayer = async (playerId: string) => {
+    if (window.confirm('Are you sure you want to activate this player?')) {
+      try {
+        const playerToActivate = inactivePlayers.find(p => p.id === playerId);
+        if (!playerToActivate) return;
+
+        // Create user in users collection (active)
+        await addDoc(collection(db, 'users'), {
+          email: playerToActivate.email,
+          name: playerToActivate.name,
+          role: 'player',
+          createdAt: new Date()
+        });
+
+        // Remove from inactive players
+        await deleteDoc(doc(db, 'players', playerId));
+        
+        fetchPlayers();
+      } catch (error) {
+        console.error('Error activating player:', error);
       }
     }
   };
@@ -120,7 +167,7 @@ export default function Players() {
           <h1 className="text-3xl font-bold bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">
             Players Management
           </h1>
-          <p className="text-gray-400 mt-1">Manage player accounts and permissions</p>
+          <p className="text-gray-400 mt-1">Manage active and inactive player accounts</p>
         </div>
         
         <button
@@ -146,99 +193,254 @@ export default function Players() {
         />
       </div>
 
-      {/* Players Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {loading ? (
-          <div className="col-span-full text-center py-12">
-            <div className="text-gray-400">Loading players...</div>
-          </div>
-        ) : filteredPlayers.length === 0 ? (
-          <div className="col-span-full text-center py-12">
-            <UserPlus className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-400">
-              {searchTerm ? 'No players found matching your search.' : 'No players found. Create your first player!'}
-            </p>
-          </div>
-        ) : (
-          filteredPlayers.map((player) => (
-            <div
-              key={player.id}
-              className="bg-black/20 backdrop-blur-sm rounded-xl p-6 border border-purple-500/20 hover:scale-105 transition-transform duration-200"
-            >
-              {editingPlayer?.id === player.id ? (
-                <form onSubmit={handleEditPlayer} className="space-y-4">
-                  <input
-                    type="text"
-                    value={editingPlayer.name}
-                    onChange={(e) => setEditingPlayer({ ...editingPlayer, name: e.target.value })}
-                    className="w-full px-3 py-2 bg-white/5 border border-purple-500/20 rounded-lg text-white text-lg font-semibold"
-                    placeholder="Player Name"
-                    required
-                  />
-                  <input
-                    type="email"
-                    value={editingPlayer.email}
-                    onChange={(e) => setEditingPlayer({ ...editingPlayer, email: e.target.value })}
-                    className="w-full px-3 py-2 bg-white/5 border border-purple-500/20 rounded-lg text-white"
-                    placeholder="Email Address"
-                    required
-                  />
-                  <div className="flex space-x-2">
-                    <button
-                      type="submit"
-                      className="flex-1 bg-green-500 hover:bg-green-600 text-white py-2 px-3 rounded-lg flex items-center justify-center"
-                    >
-                      <Save className="w-4 h-4" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setEditingPlayer(null)}
-                      className="flex-1 bg-gray-500 hover:bg-gray-600 text-white py-2 px-3 rounded-lg flex items-center justify-center"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                </form>
-              ) : (
-                <>
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-center space-x-3">
-                      <div className="p-3 rounded-lg bg-gradient-to-r from-green-500 to-emerald-500">
-                        <UserPlus className="w-6 h-6 text-white" />
-                      </div>
-                      <div>
-                        <h3 className="text-lg font-semibold text-white">{player.name}</h3>
-                        <p className="text-sm text-gray-400">{player.email}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <button
-                        onClick={() => setEditingPlayer(player)}
-                        className="p-2 text-gray-400 hover:text-cyan-400 transition-colors"
-                      >
-                        <Edit className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDeletePlayer(player.uid)}
-                        className="p-2 text-gray-400 hover:text-red-400 transition-colors"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-2 text-sm">
-                    <div className="text-gray-400">
-                      Role: <span className="text-green-400 capitalize">{player.role}</span>
-                    </div>
-                    <div className="text-gray-400">
-                      Created: {player.createdAt.toLocaleDateString()}
-                    </div>
-                  </div>
-                </>
-              )}
+      {/* Active Players Section */}
+      <div className="bg-black/20 backdrop-blur-sm rounded-xl border border-green-500/20 overflow-hidden">
+        <button
+          onClick={() => setActivePlayersExpanded(!activePlayersExpanded)}
+          className="w-full flex items-center justify-between p-6 hover:bg-white/5 transition-colors"
+        >
+          <div className="flex items-center space-x-4">
+            <div className="p-3 rounded-lg bg-gradient-to-r from-green-500 to-emerald-500">
+              <UserCheck className="w-6 h-6 text-white" />
             </div>
-          ))
+            <div>
+              <h2 className="text-xl font-bold text-white">Active Players</h2>
+              <p className="text-sm text-gray-400">{activePlayers.length} registered players</p>
+            </div>
+          </div>
+          {activePlayersExpanded ? (
+            <ChevronUp className="w-5 h-5 text-gray-400" />
+          ) : (
+            <ChevronDown className="w-5 h-5 text-gray-400" />
+          )}
+        </button>
+        
+        {activePlayersExpanded && (
+          <div className="p-6 pt-0">
+            {loading ? (
+              <div className="text-center py-8">
+                <div className="text-gray-400">Loading active players...</div>
+              </div>
+            ) : filteredActivePlayers.length === 0 ? (
+              <div className="text-center py-8">
+                <UserCheck className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-400">
+                  {searchTerm ? 'No active players found matching your search.' : 'No active players found.'}
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredActivePlayers.map((player) => (
+                  <div
+                    key={player.id}
+                    className="bg-white/5 rounded-xl p-6 border border-green-500/20 hover:scale-105 transition-transform duration-200"
+                  >
+                    {editingPlayer?.id === player.id ? (
+                      <form onSubmit={handleEditPlayer} className="space-y-4">
+                        <input
+                          type="text"
+                          value={editingPlayer.name}
+                          onChange={(e) => setEditingPlayer({ ...editingPlayer, name: e.target.value })}
+                          className="w-full px-3 py-2 bg-white/5 border border-purple-500/20 rounded-lg text-white text-lg font-semibold"
+                          placeholder="Player Name"
+                          required
+                        />
+                        <input
+                          type="email"
+                          value={editingPlayer.email}
+                          onChange={(e) => setEditingPlayer({ ...editingPlayer, email: e.target.value })}
+                          className="w-full px-3 py-2 bg-white/5 border border-purple-500/20 rounded-lg text-white"
+                          placeholder="Email Address"
+                          required
+                        />
+                        <div className="flex space-x-2">
+                          <button
+                            type="submit"
+                            className="flex-1 bg-green-500 hover:bg-green-600 text-white py-2 px-3 rounded-lg flex items-center justify-center"
+                          >
+                            <Save className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditingPlayer(null)}
+                            className="flex-1 bg-gray-500 hover:bg-gray-600 text-white py-2 px-3 rounded-lg flex items-center justify-center"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </form>
+                    ) : (
+                      <>
+                        <div className="flex items-start justify-between mb-4">
+                          <div className="flex items-center space-x-3">
+                            <div className="p-3 rounded-lg bg-gradient-to-r from-green-500 to-emerald-500">
+                              <UserCheck className="w-6 h-6 text-white" />
+                            </div>
+                            <div>
+                              <h3 className="text-lg font-semibold text-white">{player.name}</h3>
+                              <p className="text-sm text-gray-400">{player.email}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <button
+                              onClick={() => setEditingPlayer(player)}
+                              className="p-2 text-gray-400 hover:text-cyan-400 transition-colors"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDeletePlayer(player.id, true)}
+                              className="p-2 text-gray-400 hover:text-red-400 transition-colors"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                        
+                        <div className="space-y-2 text-sm">
+                          <div className="text-gray-400">
+                            Status: <span className="text-green-400">Active</span>
+                          </div>
+                          <div className="text-gray-400">
+                            Created: {player.createdAt.toLocaleDateString()}
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Inactive Players Section */}
+      <div className="bg-black/20 backdrop-blur-sm rounded-xl border border-orange-500/20 overflow-hidden">
+        <button
+          onClick={() => setInactivePlayersExpanded(!inactivePlayersExpanded)}
+          className="w-full flex items-center justify-between p-6 hover:bg-white/5 transition-colors"
+        >
+          <div className="flex items-center space-x-4">
+            <div className="p-3 rounded-lg bg-gradient-to-r from-orange-500 to-amber-500">
+              <UserX className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-white">Inactive Players</h2>
+              <p className="text-sm text-gray-400">{inactivePlayers.length} pending players</p>
+            </div>
+          </div>
+          {inactivePlayersExpanded ? (
+            <ChevronUp className="w-5 h-5 text-gray-400" />
+          ) : (
+            <ChevronDown className="w-5 h-5 text-gray-400" />
+          )}
+        </button>
+        
+        {inactivePlayersExpanded && (
+          <div className="p-6 pt-0">
+            {loading ? (
+              <div className="text-center py-8">
+                <div className="text-gray-400">Loading inactive players...</div>
+              </div>
+            ) : filteredInactivePlayers.length === 0 ? (
+              <div className="text-center py-8">
+                <UserX className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-400">
+                  {searchTerm ? 'No inactive players found matching your search.' : 'No inactive players found.'}
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredInactivePlayers.map((player) => (
+                  <div
+                    key={player.id}
+                    className="bg-white/5 rounded-xl p-6 border border-orange-500/20 hover:scale-105 transition-transform duration-200"
+                  >
+                    {editingPlayer?.id === player.id ? (
+                      <form onSubmit={handleEditPlayer} className="space-y-4">
+                        <input
+                          type="text"
+                          value={editingPlayer.name}
+                          onChange={(e) => setEditingPlayer({ ...editingPlayer, name: e.target.value })}
+                          className="w-full px-3 py-2 bg-white/5 border border-purple-500/20 rounded-lg text-white text-lg font-semibold"
+                          placeholder="Player Name"
+                          required
+                        />
+                        <input
+                          type="email"
+                          value={editingPlayer.email}
+                          onChange={(e) => setEditingPlayer({ ...editingPlayer, email: e.target.value })}
+                          className="w-full px-3 py-2 bg-white/5 border border-purple-500/20 rounded-lg text-white"
+                          placeholder="Email Address"
+                          required
+                        />
+                        <div className="flex space-x-2">
+                          <button
+                            type="submit"
+                            className="flex-1 bg-green-500 hover:bg-green-600 text-white py-2 px-3 rounded-lg flex items-center justify-center"
+                          >
+                            <Save className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditingPlayer(null)}
+                            className="flex-1 bg-gray-500 hover:bg-gray-600 text-white py-2 px-3 rounded-lg flex items-center justify-center"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </form>
+                    ) : (
+                      <>
+                        <div className="flex items-start justify-between mb-4">
+                          <div className="flex items-center space-x-3">
+                            <div className="p-3 rounded-lg bg-gradient-to-r from-orange-500 to-amber-500">
+                              <UserX className="w-6 h-6 text-white" />
+                            </div>
+                            <div>
+                              <h3 className="text-lg font-semibold text-white">{player.name}</h3>
+                              <p className="text-sm text-gray-400">{player.email}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <button
+                              onClick={() => setEditingPlayer(player)}
+                              className="p-2 text-gray-400 hover:text-cyan-400 transition-colors"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDeletePlayer(player.id, false)}
+                              className="p-2 text-gray-400 hover:text-red-400 transition-colors"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                        
+                        <div className="space-y-2 text-sm">
+                          <div className="text-gray-400">
+                            Status: <span className="text-orange-400 capitalize">{player.status || 'pending'}</span>
+                          </div>
+                          <div className="text-gray-400">
+                            Created: {player.createdAt.toLocaleDateString()}
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={() => activatePlayer(player.id)}
+                          className="mt-4 w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-medium py-2 px-4 rounded-lg transition-all duration-200"
+                        >
+                          Activate Player
+                        </button>
+                      </>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         )}
       </div>
 

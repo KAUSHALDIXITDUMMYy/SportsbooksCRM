@@ -3,6 +3,7 @@ import { User, onAuthStateChanged, signInWithEmailAndPassword, signOut, createUs
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 
+
 interface UserData {
   uid: string;
   email: string;
@@ -69,12 +70,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      setLoading(true);
       if (user) {
         setCurrentUser(user);
         // Get user data from Firestore
         const userDoc = await getDoc(doc(db, 'users', user.uid));
         if (userDoc.exists()) {
           setUserData(userDoc.data() as UserData);
+        } else {
+          // User exists in auth but not in Firestore - this shouldn't happen
+          console.error('User exists in auth but not in Firestore');
+          setUserData(null);
         }
       } else {
         setCurrentUser(null);

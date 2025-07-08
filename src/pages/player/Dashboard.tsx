@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { collection, getDocs, query, where, orderBy, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { useAuth } from '../../contexts/AuthContext';
-import { CreditCard, TrendingUp, DollarSign, Calendar, ExternalLink, Filter, Edit, Trash2, Save, X, ArrowUp, ArrowDown } from 'lucide-react';
+import { CreditCard, TrendingUp, DollarSign, Calendar, ExternalLink, Filter, Edit, Trash2, Save, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 interface Account {
@@ -28,9 +28,6 @@ interface Entry {
   notes: string;
 }
 
-type SortField = 'date' | 'profitLoss' | 'startingBalance' | 'endingBalance';
-type SortDirection = 'asc' | 'desc';
-
 export default function PlayerDashboard() {
   const { userData } = useAuth();
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -39,8 +36,6 @@ export default function PlayerDashboard() {
   const [accountFilter, setAccountFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [sortField, setSortField] = useState<SortField>('date');
-  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
   useEffect(() => {
     if (userData?.uid) {
@@ -49,38 +44,53 @@ export default function PlayerDashboard() {
   }, [userData]);
 
   const fetchPlayerData = async () => {
+    if (!userData?.uid) return;
+    
     try {
       // Fetch assigned accounts
-      const accountsQuery = query(collection(db, 'accounts'), where('assignedToPlayerUid', '==', userData?.uid));
+      const accountsQuery = query(collection(db, 'accounts'), where('assignedToPlayerUid', '==', userData.uid));
       const accountsSnapshot = await getDocs(accountsQuery);
       const accountsData = await Promise.all(
         accountsSnapshot.docs.map(async (accountDoc) => {
           const accountData = accountDoc.data();
           
           // Get agent name
-          const agentQuery = query(collection(db, 'agents'), where('__name__', '==', accountData.agentId));
-          const agentSnapshot = await getDocs(agentQuery);
-          const agentName = agentSnapshot.docs[0]?.data().name || 'Unknown Agent';
-          
-          return {
-            id: accountDoc.id,
-            type: accountData.type || 'pph',
-            username: accountData.username,
-            name: accountData.name,
-            websiteURL: accountData.websiteURL,
-            agentName,
-            status: accountData.status || 'active',
-            depositAmount: accountData.depositAmount
-          };
+          try {
+            const agentDoc = await getDoc(doc(db, 'agents', accountData.agentId));
+            const agentName = agentDoc.exists() ? agentDoc.data().name : 'Unknown Agent';
+            
+            return {
+              id: accountDoc.id,
+              type: accountData.type || 'pph',
+              username: accountData.username,
+              name: accountData.name,
+              websiteURL: accountData.websiteURL,
+              agentName,
+              status: accountData.status || 'active',
+              depositAmount: accountData.depositAmount
+            };
+          } catch (error) {
+            console.error('Error fetching agent data:', error);
+            return {
+              id: accountDoc.id,
+              type: accountData.type || 'pph',
+              username: accountData.username,
+              name: accountData.name,
+              websiteURL: accountData.websiteURL,
+              agentName: 'Unknown Agent',
+              status: accountData.status || 'active',
+              depositAmount: accountData.depositAmount
+            };
+          }
         })
       );
       setAccounts(accountsData);
-
+  
       // Fetch entries for assigned accounts with proper ordering
       if (accountsData.length > 0) {
         const entriesQuery = query(
           collection(db, 'entries'), 
-          where('playerUid', '==', userData?.uid),
+          where('playerUid', '==', userData.uid),
           orderBy('date', 'desc')
         );
         const entriesSnapshot = await getDocs(entriesQuery);
@@ -96,7 +106,6 @@ export default function PlayerDashboard() {
       setLoading(false);
     }
   };
-
   const handleEditEntry = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingEntry) return;
@@ -138,38 +147,12 @@ export default function PlayerDashboard() {
     }) : null);
   };
 
-  const handleSort = (field: SortField) => {
-    if (sortField === field) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
-      setSortDirection('desc');
-    }
-  };
-
-  const sortedEntries = [...entries].sort((a, b) => {
-    if (sortField === 'date') {
-      const dateA = new Date(a.date).getTime();
-      const dateB = new Date(b.date).getTime();
-      return sortDirection === 'asc' ? dateA - dateB : dateB - dateA;
-    } else {
-      const valueA = a[sortField];
-      const valueB = b[sortField];
-      return sortDirection === 'asc' ? valueA - valueB : valueB - valueA;
-    }
-  });
-
   const totalProfit = entries.reduce((sum, entry) => sum + (entry.profitLoss || 0), 0);
   const activeAccounts = accounts.filter(acc => acc.status === 'active');
   const inactiveAccounts = accounts.filter(acc => acc.status === 'inactive');
 
   const filteredAccounts = accountFilter === 'all' ? accounts : 
                           accountFilter === 'active' ? activeAccounts : inactiveAccounts;
-
-  const SortIcon = ({ field }: { field: SortField }) => {
-    if (sortField !== field) return null;
-    return sortDirection === 'asc' ? <ArrowUp className="w-3 h-3 ml-1" /> : <ArrowDown className="w-3 h-3 ml-1" />;
-  };
 
   return (
     <div className="space-y-6 lg:space-y-8">
@@ -360,30 +343,7 @@ export default function PlayerDashboard() {
 
       {/* Recent Entries */}
       <div className="bg-black/20 backdrop-blur-sm rounded-xl p-4 lg:p-6 border border-purple-500/20">
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-4 lg:mb-6">
-          <h2 className="text-lg lg:text-xl font-bold text-white">Recent Entries</h2>
-          <div className="flex items-center space-x-4 mt-2 lg:mt-0">
-            <div className="flex items-center space-x-2">
-              <span className="text-sm text-gray-400">Sort by:</span>
-              <select
-                value={sortField}
-                onChange={(e) => setSortField(e.target.value as SortField)}
-                className="bg-white/5 border border-purple-500/20 rounded-lg text-white text-sm px-3 py-1"
-              >
-                <option value="date">Date</option>
-                <option value="profitLoss">Profit/Loss</option>
-                <option value="startingBalance">Starting Balance</option>
-                <option value="endingBalance">Ending Balance</option>
-              </select>
-              <button
-                onClick={() => setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')}
-                className="p-1 text-gray-400 hover:text-cyan-400 transition-colors"
-              >
-                {sortDirection === 'asc' ? <ArrowUp className="w-5 h-5" /> : <ArrowDown className="w-5 h-5" />}
-              </button>
-            </div>
-          </div>
-        </div>
+        <h2 className="text-lg lg:text-xl font-bold text-white mb-4 lg:mb-6">Recent Entries</h2>
         
         {entries.length === 0 ? (
           <div className="text-center py-8">
@@ -393,7 +353,7 @@ export default function PlayerDashboard() {
           </div>
         ) : (
           <div className="space-y-4">
-            {sortedEntries.slice(0, 10).map((entry) => {
+            {entries.slice(0, 10).map((entry) => {
               const account = accounts.find(acc => acc.id === entry.accountId);
               return (
                 <div
