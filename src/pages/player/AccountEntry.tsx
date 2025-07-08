@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { collection, addDoc, getDocs, query, where, doc, getDoc, updateDoc, deleteDoc, orderBy } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { useAuth } from '../../contexts/AuthContext';
-import { ArrowLeft, Save, Calendar, DollarSign, ToggleLeft, ToggleRight, Edit, Trash2, X } from 'lucide-react';
+import { ArrowLeft, Save, Calendar, DollarSign, ToggleLeft, ToggleRight, Edit, Trash2, Plus } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface Account {
@@ -127,6 +127,7 @@ export default function AccountEntry() {
           orderBy('date', 'desc')
         );
         const entriesSnapshot = await getDocs(entriesQuery);
+        console.log(entriesSnapshot);
         const entriesData = entriesSnapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data()
@@ -256,9 +257,9 @@ export default function AccountEntry() {
   }
 
   return (
-    <div className="space-y-6 lg:space-y-8">
+    <div className="space-y-8">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
+      <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
           <button
             onClick={() => navigate('/player/dashboard')}
@@ -267,26 +268,24 @@ export default function AccountEntry() {
             <ArrowLeft className="w-6 h-6" />
           </button>
           <div>
-            <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-3 space-y-2 sm:space-y-0">
-              <h1 className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">
+            <div className="flex items-center space-x-3">
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">
                 {account.type === 'pph' ? account.username : account.name}
               </h1>
-              <div className="flex items-center space-x-2">
-                <span className={`px-2 py-1 rounded-full text-xs ${
-                  account.type === 'pph' 
-                    ? 'bg-purple-500/20 text-purple-400' 
-                    : 'bg-orange-500/20 text-orange-400'
-                }`}>
-                  {(account.type || 'pph').toUpperCase()}
-                </span>
-                <span className={`px-2 py-1 rounded-full text-xs ${
-                  currentEntry.accountStatus === 'active' 
-                    ? 'bg-green-500/20 text-green-400' 
-                    : 'bg-red-500/20 text-red-400'
-                }`}>
-                  {currentEntry.accountStatus}
-                </span>
-              </div>
+              <span className={`px-3 py-1 rounded-full text-sm ${
+                account.type === 'pph' 
+                  ? 'bg-purple-500/20 text-purple-400' 
+                  : 'bg-orange-500/20 text-orange-400'
+              }`}>
+                {(account.type || 'pph').toUpperCase()}
+              </span>
+              <span className={`px-3 py-1 rounded-full text-sm ${
+                currentEntry.accountStatus === 'active' 
+                  ? 'bg-green-500/20 text-green-400' 
+                  : 'bg-red-500/20 text-red-400'
+              }`}>
+                {currentEntry.accountStatus}
+              </span>
             </div>
             <p className="text-gray-400 mt-1">Agent: {account.agentName}</p>
             {account.type === 'legal' && account.depositAmount && (
@@ -297,19 +296,19 @@ export default function AccountEntry() {
         
         <div className="flex items-center space-x-2">
           <Calendar className="w-5 h-5 text-gray-400" />
-          <span className="text-gray-300 text-sm lg:text-base">{format(new Date(), 'MMMM dd, yyyy')}</span>
+          <span className="text-gray-300">{format(new Date(), 'MMMM dd, yyyy')}</span>
         </div>
       </div>
 
       {/* Entry Form */}
-      <div className="bg-black/20 backdrop-blur-sm rounded-xl p-4 lg:p-6 border border-purple-500/20">
-        <h2 className="text-lg lg:text-xl font-bold text-white mb-4 lg:mb-6 flex items-center">
-          <DollarSign className="w-5 h-5 lg:w-6 lg:h-6 mr-2" />
+      <div className="bg-black/20 backdrop-blur-sm rounded-xl p-6 border border-purple-500/20">
+        <h2 className="text-xl font-bold text-white mb-6 flex items-center">
+          <DollarSign className="w-6 h-6 mr-2" />
           Daily Performance Entry
         </h2>
         
-        <form onSubmit={handleSubmit} className="space-y-4 lg:space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
                 Date
@@ -318,7 +317,7 @@ export default function AccountEntry() {
                 type="date"
                 value={currentEntry.date}
                 onChange={(e) => handleInputChange('date', e.target.value)}
-                className="w-full px-3 lg:px-4 py-2 lg:py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                className="w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
                 required
               />
             </div>
@@ -331,7 +330,7 @@ export default function AccountEntry() {
                 <button
                   type="button"
                   onClick={() => handleInputChange('accountStatus', currentEntry.accountStatus === 'active' ? 'inactive' : 'active')}
-                  className={`flex items-center space-x-2 px-3 lg:px-4 py-2 lg:py-3 rounded-lg transition-all duration-200 ${
+                  className={`flex items-center space-x-2 px-4 py-3 rounded-lg transition-all duration-200 ${
                     currentEntry.accountStatus === 'active'
                       ? 'bg-green-500/20 text-green-400 border border-green-500/30'
                       : 'bg-red-500/20 text-red-400 border border-red-500/30'
@@ -342,7 +341,7 @@ export default function AccountEntry() {
                   ) : (
                     <ToggleLeft className="w-5 h-5" />
                   )}
-                  <span className="capitalize text-sm lg:text-base">{currentEntry.accountStatus}</span>
+                  <span className="capitalize">{currentEntry.accountStatus}</span>
                 </button>
               </div>
             </div>
@@ -356,9 +355,8 @@ export default function AccountEntry() {
                 step="0.01"
                 value={currentEntry.startingBalance}
                 onChange={(e) => handleInputChange('startingBalance', parseFloat(e.target.value) || 0)}
-                className="w-full px-3 lg:px-4 py-2 lg:py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                className="w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
                 required
-                readOnly={account.type === 'legal'}
               />
             </div>
             
@@ -371,7 +369,7 @@ export default function AccountEntry() {
                 step="0.01"
                 value={currentEntry.endingBalance}
                 onChange={(e) => handleInputChange('endingBalance', parseFloat(e.target.value) || 0)}
-                className="w-full px-3 lg:px-4 py-2 lg:py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                className="w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
                 required
               />
             </div>
@@ -385,7 +383,7 @@ export default function AccountEntry() {
                 step="0.01"
                 value={currentEntry.refillAmount}
                 onChange={(e) => handleInputChange('refillAmount', parseFloat(e.target.value) || 0)}
-                className="w-full px-3 lg:px-4 py-2 lg:py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                className="w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
               />
             </div>
             
@@ -398,7 +396,7 @@ export default function AccountEntry() {
                 step="0.01"
                 value={currentEntry.withdrawal}
                 onChange={(e) => handleInputChange('withdrawal', parseFloat(e.target.value) || 0)}
-                className="w-full px-3 lg:px-4 py-2 lg:py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                className="w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
               />
             </div>
             
@@ -411,7 +409,7 @@ export default function AccountEntry() {
                 step="0.01"
                 value={currentEntry.complianceReview}
                 onChange={(e) => handleInputChange('complianceReview', parseFloat(e.target.value) || 0)}
-                className="w-full px-3 lg:px-4 py-2 lg:py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                className="w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
               />
             </div>
             
@@ -423,16 +421,13 @@ export default function AccountEntry() {
                 type="number"
                 step="0.01"
                 value={currentEntry.profitLoss}
-                className={`w-full px-3 lg:px-4 py-2 lg:py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none cursor-not-allowed ${
+                className={`w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none cursor-not-allowed ${
                   currentEntry.profitLoss >= 0 ? 'text-green-400' : 'text-red-400'
                 }`}
                 disabled
               />
             </div>
-          </div>
-
-          {/* Additional Fields - Collapsible on Mobile */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
+            
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
                 Clicker Settled
@@ -440,7 +435,7 @@ export default function AccountEntry() {
               <select
                 value={currentEntry.clickerSettled}
                 onChange={(e) => handleInputChange('clickerSettled', e.target.value)}
-                className="w-full px-3 lg:px-4 py-2 lg:py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                className="w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
               >
                 <option value="No">No</option>
                 <option value="Yes">Yes</option>
@@ -456,7 +451,7 @@ export default function AccountEntry() {
                 step="0.01"
                 value={currentEntry.clickerAmount}
                 onChange={(e) => handleInputChange('clickerAmount', parseFloat(e.target.value) || 0)}
-                className="w-full px-3 lg:px-4 py-2 lg:py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                className="w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
               />
             </div>
             
@@ -467,7 +462,7 @@ export default function AccountEntry() {
               <select
                 value={currentEntry.accHolderSettled}
                 onChange={(e) => handleInputChange('accHolderSettled', e.target.value)}
-                className="w-full px-3 lg:px-4 py-2 lg:py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                className="w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
               >
                 <option value="No">No</option>
                 <option value="Yes">Yes</option>
@@ -483,7 +478,7 @@ export default function AccountEntry() {
                 step="0.01"
                 value={currentEntry.accHolderAmount}
                 onChange={(e) => handleInputChange('accHolderAmount', parseFloat(e.target.value) || 0)}
-                className="w-full px-3 lg:px-4 py-2 lg:py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                className="w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
               />
             </div>
             
@@ -494,7 +489,7 @@ export default function AccountEntry() {
               <select
                 value={currentEntry.companySettled}
                 onChange={(e) => handleInputChange('companySettled', e.target.value)}
-                className="w-full px-3 lg:px-4 py-2 lg:py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                className="w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
               >
                 <option value="No">No</option>
                 <option value="Yes">Yes</option>
@@ -510,7 +505,7 @@ export default function AccountEntry() {
                 step="0.01"
                 value={currentEntry.companyAmount}
                 onChange={(e) => handleInputChange('companyAmount', parseFloat(e.target.value) || 0)}
-                className="w-full px-3 lg:px-4 py-2 lg:py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                className="w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
               />
             </div>
             
@@ -523,7 +518,7 @@ export default function AccountEntry() {
                 step="0.01"
                 value={currentEntry.taxableAmount}
                 onChange={(e) => handleInputChange('taxableAmount', parseFloat(e.target.value) || 0)}
-                className="w-full px-3 lg:px-4 py-2 lg:py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                className="w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
               />
             </div>
             
@@ -536,7 +531,7 @@ export default function AccountEntry() {
                 step="0.01"
                 value={currentEntry.referralAmount}
                 onChange={(e) => handleInputChange('referralAmount', parseFloat(e.target.value) || 0)}
-                className="w-full px-3 lg:px-4 py-2 lg:py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                className="w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
               />
             </div>
           </div>
@@ -549,25 +544,25 @@ export default function AccountEntry() {
               value={currentEntry.notes}
               onChange={(e) => handleInputChange('notes', e.target.value)}
               rows={3}
-              className="w-full px-3 lg:px-4 py-2 lg:py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+              className="w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-400"
               placeholder="Add any additional notes here..."
             />
           </div>
           
-          <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-4">
+          <div className="flex justify-end space-x-4">
             <button
               type="button"
               onClick={() => navigate('/player/dashboard')}
-              className="px-4 lg:px-6 py-2 lg:py-3 text-gray-400 hover:text-white transition-colors"
+              className="px-6 py-3 text-gray-400 hover:text-white transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={saving}
-              className="bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white font-medium py-2 lg:py-3 px-4 lg:px-6 rounded-lg transition-all duration-200 flex items-center justify-center space-x-2 disabled:opacity-50"
+              className="bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white font-medium py-3 px-6 rounded-lg transition-all duration-200 flex items-center space-x-2 disabled:opacity-50"
             >
-              <Save className="w-4 h-4 lg:w-5 lg:h-5" />
+              <Save className="w-5 h-5" />
               <span>{saving ? 'Saving...' : 'Save Entry'}</span>
             </button>
           </div>
@@ -575,8 +570,8 @@ export default function AccountEntry() {
       </div>
 
       {/* Previous Entries */}
-      <div className="bg-black/20 backdrop-blur-sm rounded-xl p-4 lg:p-6 border border-purple-500/20">
-        <h2 className="text-lg lg:text-xl font-bold text-white mb-4 lg:mb-6">Previous Entries</h2>
+      <div className="bg-black/20 backdrop-blur-sm rounded-xl p-6 border border-purple-500/20">
+        <h2 className="text-xl font-bold text-white mb-6">Previous Entries</h2>
         
         {entries.length === 0 ? (
           <div className="text-center py-8">
@@ -592,18 +587,7 @@ export default function AccountEntry() {
               >
                 {editingEntry?.id === entry.id ? (
                   <form onSubmit={handleEditEntry} className="space-y-4">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-lg font-semibold text-white">Edit Entry</h3>
-                      <button
-                        type="button"
-                        onClick={() => setEditingEntry(null)}
-                        className="p-1 text-gray-400 hover:text-white transition-colors"
-                      >
-                        <X className="w-5 h-5" />
-                      </button>
-                    </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div>
                         <label className="block text-sm text-gray-400 mb-1">Date</label>
                         <input
@@ -621,7 +605,6 @@ export default function AccountEntry() {
                           value={editingEntry.startingBalance}
                           onChange={(e) => handleEditInputChange('startingBalance', parseFloat(e.target.value) || 0)}
                           className="w-full px-3 py-2 bg-white/5 border border-purple-500/20 rounded text-white text-sm"
-                          readOnly={account.type === 'legal'}
                         />
                       </div>
                       <div>
@@ -676,11 +659,11 @@ export default function AccountEntry() {
                         className="w-full px-3 py-2 bg-white/5 border border-purple-500/20 rounded text-white text-sm"
                       />
                     </div>
-                    <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
+                    <div className="flex space-x-2">
                       <button
                         type="submit"
                         disabled={saving}
-                        className="bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded-lg flex items-center justify-center space-x-2 disabled:opacity-50"
+                        className="bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded-lg flex items-center space-x-2 disabled:opacity-50"
                       >
                         <Save className="w-4 h-4" />
                         <span>{saving ? 'Saving...' : 'Save'}</span>
@@ -695,8 +678,8 @@ export default function AccountEntry() {
                     </div>
                   </form>
                 ) : (
-                  <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 flex-1">
+                  <div className="flex items-center justify-between">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 flex-1">
                       <div>
                         <p className="text-sm text-gray-400">Date</p>
                         <p className="text-white font-medium">{entry.date}</p>
@@ -716,7 +699,7 @@ export default function AccountEntry() {
                         </p>
                       </div>
                     </div>
-                    <div className="flex items-center justify-end space-x-2 lg:ml-4">
+                    <div className="flex items-center space-x-2 ml-4">
                       <button
                         onClick={() => setEditingEntry(entry)}
                         className="p-2 text-gray-400 hover:text-cyan-400 transition-colors"
