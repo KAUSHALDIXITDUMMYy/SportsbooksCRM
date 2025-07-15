@@ -3,6 +3,7 @@ import { collection, getDocs, query, where, doc, updateDoc, deleteDoc } from 'fi
 import { doc as firestoreDoc, setDoc, addDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { Plus, UserPlus, Trash2, Edit, Save, X, Search, ChevronDown, ChevronUp, UserCheck, UserX } from 'lucide-react';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
 
 interface Player {
   id: string;
@@ -148,7 +149,7 @@ export default function Players() {
           role: 'player',
           createdAt: new Date()
         });
-
+        
         // Remove from inactive players
         await deleteDoc(doc(db, 'players', playerId));
         
@@ -428,12 +429,7 @@ export default function Players() {
                           </div>
                         </div>
 
-                        <button
-                          onClick={() => activatePlayer(player.id)}
-                          className="mt-4 w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-medium py-2 px-4 rounded-lg transition-all duration-200"
-                        >
-                          Activate Player
-                        </button>
+                        
                       </>
                     )}
                   </div>
