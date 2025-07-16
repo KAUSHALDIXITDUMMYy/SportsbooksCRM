@@ -657,24 +657,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Quick Actions */}
-      <div className="bg-black/20 backdrop-blur-sm rounded-xl p-4 lg:p-6 border border-purple-500/20">
-        <h2 className="text-lg lg:text-xl font-bold text-white mb-4 lg:mb-6">Quick Actions</h2>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <button className="bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white font-medium py-2 lg:py-3 px-3 lg:px-4 rounded-lg transition-all duration-200 transform hover:scale-105 text-sm lg:text-base">
-            Add New Agent
-          </button>
-          <button className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-medium py-2 lg:py-3 px-3 lg:px-4 rounded-lg transition-all duration-200 transform hover:scale-105 text-sm lg:text-base">
-            Create Account
-          </button>
-          <button className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-medium py-2 lg:py-3 px-3 lg:px-4 rounded-lg transition-all duration-200 transform hover:scale-105 text-sm lg:text-base">
-            Add Player
-          </button>
-          <button className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-medium py-2 lg:py-3 px-3 lg:px-4 rounded-lg transition-all duration-200 transform hover:scale-105 text-sm lg:text-base">
-            Export Data
-          </button>
-        </div>
-      </div>
+     
     </div>
   );
 }
