@@ -78,17 +78,23 @@ export default function AccountEntry() {
   }, [id, userData]);
 
   useEffect(() => {
-    // Calculate profit/loss automatically for current entry
-    const profitLoss = currentEntry.endingBalance - currentEntry.startingBalance + currentEntry.withdrawal - currentEntry.refillAmount;
+    const profitLoss = 
+      (currentEntry.endingBalance || 0) - 
+      (currentEntry.startingBalance || 0) + 
+      (currentEntry.withdrawal || 0) - 
+      (currentEntry.refillAmount || 0);
     if (profitLoss !== currentEntry.profitLoss) {
       setCurrentEntry(prev => ({ ...prev, profitLoss }));
     }
   }, [currentEntry.startingBalance, currentEntry.endingBalance, currentEntry.withdrawal, currentEntry.refillAmount]);
 
   useEffect(() => {
-    // Calculate profit/loss automatically for editing entry
     if (editingEntry) {
-      const profitLoss = editingEntry.endingBalance - editingEntry.startingBalance + editingEntry.withdrawal - editingEntry.refillAmount;
+      const profitLoss = 
+        (editingEntry.endingBalance || 0) - 
+        (editingEntry.startingBalance || 0) + 
+        (editingEntry.withdrawal || 0) - 
+        (editingEntry.refillAmount || 0);
       if (profitLoss !== editingEntry.profitLoss) {
         setEditingEntry(prev => prev ? ({ ...prev, profitLoss }) : null);
       }
@@ -99,12 +105,10 @@ export default function AccountEntry() {
     try {
       if (!id) return;
       
-      // Fetch account details
       const accountDoc = await getDoc(doc(db, 'accounts', id));
       if (accountDoc.exists()) {
         const accountData = accountDoc.data();
         
-        // Get agent name
         const agentDoc = await getDoc(doc(db, 'agents', accountData.agentId));
         const agentName = agentDoc.exists() ? agentDoc.data().name : 'Unknown Agent';
         
@@ -119,7 +123,6 @@ export default function AccountEntry() {
           depositAmount: accountData.depositAmount
         });
         
-        // Fetch entries for this account
         const entriesQuery = query(
           collection(db, 'entries'),
           where('accountId', '==', id),
@@ -127,20 +130,17 @@ export default function AccountEntry() {
           orderBy('date', 'desc')
         );
         const entriesSnapshot = await getDocs(entriesQuery);
-        console.log(entriesSnapshot);
         const entriesData = entriesSnapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data()
         })) as Entry[];
         setEntries(entriesData);
         
-        // Check if there's an entry for today
         const today = format(new Date(), 'yyyy-MM-dd');
         const todayEntry = entriesData.find(entry => entry.date === today);
         if (todayEntry) {
           setCurrentEntry(todayEntry);
         } else {
-          // Set initial values for new entry
           setCurrentEntry(prev => ({
             ...prev,
             accountStatus: accountData.status || 'active',
@@ -155,26 +155,51 @@ export default function AccountEntry() {
     }
   };
 
+  const handleInputChange = (field: keyof Entry, value: string) => {
+    setCurrentEntry(prev => ({
+      ...prev,
+      [field]: value === '' ? '' : isNaN(Number(value)) ? prev[field] : Number(value)
+    }));
+  };
+
+  const handleEditInputChange = (field: keyof Entry, value: string) => {
+    setEditingEntry(prev => prev ? ({
+      ...prev,
+      [field]: value === '' ? '' : isNaN(Number(value)) ? prev[field] : Number(value)
+    }) : null);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     
     try {
+      const entryToSave = {
+        ...currentEntry,
+        startingBalance: currentEntry.startingBalance || 0,
+        endingBalance: currentEntry.endingBalance || 0,
+        refillAmount: currentEntry.refillAmount || 0,
+        withdrawal: currentEntry.withdrawal || 0,
+        complianceReview: currentEntry.complianceReview || 0,
+        clickerAmount: currentEntry.clickerAmount || 0,
+        accHolderAmount: currentEntry.accHolderAmount || 0,
+        companyAmount: currentEntry.companyAmount || 0,
+        taxableAmount: currentEntry.taxableAmount || 0,
+        referralAmount: currentEntry.referralAmount || 0
+      };
+
       if (currentEntry.id) {
-        // Update existing entry
         await updateDoc(doc(db, 'entries', currentEntry.id), {
-          ...currentEntry,
+          ...entryToSave,
           updatedAt: new Date()
         });
       } else {
-        // Create new entry
         await addDoc(collection(db, 'entries'), {
-          ...currentEntry,
+          ...entryToSave,
           createdAt: new Date()
         });
       }
       
-      // Update account status if changed
       if (account && currentEntry.accountStatus !== account.status) {
         await updateDoc(doc(db, 'accounts', id!), {
           status: currentEntry.accountStatus,
@@ -196,8 +221,22 @@ export default function AccountEntry() {
     
     setSaving(true);
     try {
-      await updateDoc(doc(db, 'entries', editingEntry.id!), {
+      const entryToSave = {
         ...editingEntry,
+        startingBalance: editingEntry.startingBalance || 0,
+        endingBalance: editingEntry.endingBalance || 0,
+        refillAmount: editingEntry.refillAmount || 0,
+        withdrawal: editingEntry.withdrawal || 0,
+        complianceReview: editingEntry.complianceReview || 0,
+        clickerAmount: editingEntry.clickerAmount || 0,
+        accHolderAmount: editingEntry.accHolderAmount || 0,
+        companyAmount: editingEntry.companyAmount || 0,
+        taxableAmount: editingEntry.taxableAmount || 0,
+        referralAmount: editingEntry.referralAmount || 0
+      };
+
+      await updateDoc(doc(db, 'entries', editingEntry.id!), {
+        ...entryToSave,
         updatedAt: new Date()
       });
       setEditingEntry(null);
@@ -218,20 +257,6 @@ export default function AccountEntry() {
         console.error('Error deleting entry:', error);
       }
     }
-  };
-
-  const handleInputChange = (field: keyof Entry, value: string | number) => {
-    setCurrentEntry(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  };
-
-  const handleEditInputChange = (field: keyof Entry, value: string | number) => {
-    setEditingEntry(prev => prev ? ({
-      ...prev,
-      [field]: value
-    }) : null);
   };
 
   if (loading) {
@@ -258,7 +283,6 @@ export default function AccountEntry() {
 
   return (
     <div className="space-y-8">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
           <button
@@ -300,7 +324,6 @@ export default function AccountEntry() {
         </div>
       </div>
 
-      {/* Entry Form */}
       <div className="bg-black/20 backdrop-blur-sm rounded-xl p-6 border border-purple-500/20">
         <h2 className="text-xl font-bold text-white mb-6 flex items-center">
           <DollarSign className="w-6 h-6 mr-2" />
@@ -353,8 +376,8 @@ export default function AccountEntry() {
               <input
                 type="number"
                 step="0.01"
-                value={currentEntry.startingBalance}
-                onChange={(e) => handleInputChange('startingBalance', parseFloat(e.target.value) || 0)}
+                value={currentEntry.startingBalance === 0 ? '' : currentEntry.startingBalance}
+                onChange={(e) => handleInputChange('startingBalance', e.target.value)}
                 className="w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
                 required
               />
@@ -367,8 +390,8 @@ export default function AccountEntry() {
               <input
                 type="number"
                 step="0.01"
-                value={currentEntry.endingBalance}
-                onChange={(e) => handleInputChange('endingBalance', parseFloat(e.target.value) || 0)}
+                value={currentEntry.endingBalance === 0 ? '' : currentEntry.endingBalance}
+                onChange={(e) => handleInputChange('endingBalance', e.target.value)}
                 className="w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
                 required
               />
@@ -381,8 +404,8 @@ export default function AccountEntry() {
               <input
                 type="number"
                 step="0.01"
-                value={currentEntry.refillAmount}
-                onChange={(e) => handleInputChange('refillAmount', parseFloat(e.target.value) || 0)}
+                value={currentEntry.refillAmount === 0 ? '' : currentEntry.refillAmount}
+                onChange={(e) => handleInputChange('refillAmount', e.target.value)}
                 className="w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
               />
             </div>
@@ -394,8 +417,8 @@ export default function AccountEntry() {
               <input
                 type="number"
                 step="0.01"
-                value={currentEntry.withdrawal}
-                onChange={(e) => handleInputChange('withdrawal', parseFloat(e.target.value) || 0)}
+                value={currentEntry.withdrawal === 0 ? '' : currentEntry.withdrawal}
+                onChange={(e) => handleInputChange('withdrawal', e.target.value)}
                 className="w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
               />
             </div>
@@ -407,8 +430,8 @@ export default function AccountEntry() {
               <input
                 type="number"
                 step="0.01"
-                value={currentEntry.complianceReview}
-                onChange={(e) => handleInputChange('complianceReview', parseFloat(e.target.value) || 0)}
+                value={currentEntry.complianceReview === 0 ? '' : currentEntry.complianceReview}
+                onChange={(e) => handleInputChange('complianceReview', e.target.value)}
                 className="w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
               />
             </div>
@@ -449,8 +472,8 @@ export default function AccountEntry() {
               <input
                 type="number"
                 step="0.01"
-                value={currentEntry.clickerAmount}
-                onChange={(e) => handleInputChange('clickerAmount', parseFloat(e.target.value) || 0)}
+                value={currentEntry.clickerAmount === 0 ? '' : currentEntry.clickerAmount}
+                onChange={(e) => handleInputChange('clickerAmount', e.target.value)}
                 className="w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
               />
             </div>
@@ -476,8 +499,8 @@ export default function AccountEntry() {
               <input
                 type="number"
                 step="0.01"
-                value={currentEntry.accHolderAmount}
-                onChange={(e) => handleInputChange('accHolderAmount', parseFloat(e.target.value) || 0)}
+                value={currentEntry.accHolderAmount === 0 ? '' : currentEntry.accHolderAmount}
+                onChange={(e) => handleInputChange('accHolderAmount', e.target.value)}
                 className="w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
               />
             </div>
@@ -503,8 +526,8 @@ export default function AccountEntry() {
               <input
                 type="number"
                 step="0.01"
-                value={currentEntry.companyAmount}
-                onChange={(e) => handleInputChange('companyAmount', parseFloat(e.target.value) || 0)}
+                value={currentEntry.companyAmount === 0 ? '' : currentEntry.companyAmount}
+                onChange={(e) => handleInputChange('companyAmount', e.target.value)}
                 className="w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
               />
             </div>
@@ -516,8 +539,8 @@ export default function AccountEntry() {
               <input
                 type="number"
                 step="0.01"
-                value={currentEntry.taxableAmount}
-                onChange={(e) => handleInputChange('taxableAmount', parseFloat(e.target.value) || 0)}
+                value={currentEntry.taxableAmount === 0 ? '' : currentEntry.taxableAmount}
+                onChange={(e) => handleInputChange('taxableAmount', e.target.value)}
                 className="w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
               />
             </div>
@@ -529,8 +552,8 @@ export default function AccountEntry() {
               <input
                 type="number"
                 step="0.01"
-                value={currentEntry.referralAmount}
-                onChange={(e) => handleInputChange('referralAmount', parseFloat(e.target.value) || 0)}
+                value={currentEntry.referralAmount === 0 ? '' : currentEntry.referralAmount}
+                onChange={(e) => handleInputChange('referralAmount', e.target.value)}
                 className="w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
               />
             </div>
@@ -569,7 +592,6 @@ export default function AccountEntry() {
         </form>
       </div>
 
-      {/* Previous Entries */}
       <div className="bg-black/20 backdrop-blur-sm rounded-xl p-6 border border-purple-500/20">
         <h2 className="text-xl font-bold text-white mb-6">Previous Entries</h2>
         
@@ -602,8 +624,8 @@ export default function AccountEntry() {
                         <input
                           type="number"
                           step="0.01"
-                          value={editingEntry.startingBalance}
-                          onChange={(e) => handleEditInputChange('startingBalance', parseFloat(e.target.value) || 0)}
+                          value={editingEntry.startingBalance === 0 ? '' : editingEntry.startingBalance}
+                          onChange={(e) => handleEditInputChange('startingBalance', e.target.value)}
                           className="w-full px-3 py-2 bg-white/5 border border-purple-500/20 rounded text-white text-sm"
                         />
                       </div>
@@ -612,8 +634,8 @@ export default function AccountEntry() {
                         <input
                           type="number"
                           step="0.01"
-                          value={editingEntry.endingBalance}
-                          onChange={(e) => handleEditInputChange('endingBalance', parseFloat(e.target.value) || 0)}
+                          value={editingEntry.endingBalance === 0 ? '' : editingEntry.endingBalance}
+                          onChange={(e) => handleEditInputChange('endingBalance', e.target.value)}
                           className="w-full px-3 py-2 bg-white/5 border border-purple-500/20 rounded text-white text-sm"
                         />
                       </div>
@@ -622,8 +644,8 @@ export default function AccountEntry() {
                         <input
                           type="number"
                           step="0.01"
-                          value={editingEntry.refillAmount}
-                          onChange={(e) => handleEditInputChange('refillAmount', parseFloat(e.target.value) || 0)}
+                          value={editingEntry.refillAmount === 0 ? '' : editingEntry.refillAmount}
+                          onChange={(e) => handleEditInputChange('refillAmount', e.target.value)}
                           className="w-full px-3 py-2 bg-white/5 border border-purple-500/20 rounded text-white text-sm"
                         />
                       </div>
@@ -632,8 +654,8 @@ export default function AccountEntry() {
                         <input
                           type="number"
                           step="0.01"
-                          value={editingEntry.withdrawal}
-                          onChange={(e) => handleEditInputChange('withdrawal', parseFloat(e.target.value) || 0)}
+                          value={editingEntry.withdrawal === 0 ? '' : editingEntry.withdrawal}
+                          onChange={(e) => handleEditInputChange('withdrawal', e.target.value)}
                           className="w-full px-3 py-2 bg-white/5 border border-purple-500/20 rounded text-white text-sm"
                         />
                       </div>

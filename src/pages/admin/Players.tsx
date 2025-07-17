@@ -13,6 +13,7 @@ interface Player {
   role: string;
   createdAt: Date;
   status?: string; // For inactive players
+  percentage?: number; // Player's winning percentage
 }
 
 export default function Players() {
@@ -26,7 +27,8 @@ export default function Players() {
   const [newPlayer, setNewPlayer] = useState({
     email: '',
     password: '',
-    name: ''
+    name: '',
+    percentage: ''
   });
   const [loading, setLoading] = useState(true);
   const [activePlayersExpanded, setActivePlayersExpanded] = useState(true);
@@ -93,10 +95,11 @@ export default function Players() {
         name: newPlayer.name,
         role: 'player',
         status: 'pending',
-        createdAt: new Date()
+        createdAt: new Date(),
+        percentage: Number(newPlayer.percentage) || 0
       });
       
-      setNewPlayer({ email: '', password: '', name: '' });
+      setNewPlayer({ email: '', password: '', name: '', percentage: 0 });
       setShowModal(false);
       fetchPlayers();
     } catch (error) {
@@ -114,6 +117,7 @@ export default function Players() {
       await updateDoc(doc(db, collectionName, editingPlayer.id), {
         name: editingPlayer.name.trim(),
         email: editingPlayer.email.trim(),
+        percentage: Number(editingPlayer.percentage) || 0,
         updatedAt: new Date()
       });
       setEditingPlayer(null);
@@ -254,6 +258,16 @@ export default function Players() {
                           placeholder="Email Address"
                           required
                         />
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={editingPlayer?.percentage ?? 0}
+                          onChange={(e) => setEditingPlayer(editingPlayer ? { ...editingPlayer, percentage: Number(e.target.value) } : null)}
+                          className="w-full px-3 py-2 bg-white/5 border border-purple-500/20 rounded-lg text-white"
+                          placeholder="Percentage (%)"
+                          required
+                        />
                         <div className="flex space-x-2">
                           <button
                             type="submit"
@@ -376,6 +390,16 @@ export default function Players() {
                           placeholder="Email Address"
                           required
                         />
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={editingPlayer?.percentage ?? 0}
+                          onChange={(e) => setEditingPlayer(editingPlayer ? { ...editingPlayer, percentage: Number(e.target.value) } : null)}
+                          className="w-full px-3 py-2 bg-white/5 border border-purple-500/20 rounded-lg text-white"
+                          placeholder="Percentage (%)"
+                          required
+                        />
                         <div className="flex space-x-2">
                           <button
                             type="submit"
@@ -482,6 +506,21 @@ export default function Players() {
                   onChange={(e) => setNewPlayer({ ...newPlayer, password: e.target.value })}
                   className="w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-400"
                   placeholder="Enter password"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Percentage (%)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={newPlayer.percentage}
+                  onChange={(e) => setNewPlayer({ ...newPlayer, percentage: Number(e.target.value) })}
+                  className="w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                  placeholder="Enter player percentage"
                   required
                 />
               </div>

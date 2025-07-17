@@ -1,22 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { collection, addDoc, getDocs, deleteDoc, doc, query, where, updateDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
-import { Plus, CreditCard, Trash2, Edit, ExternalLink, Save, X, BarChart3, Search } from 'lucide-react';
+import { Plus, CreditCard, Trash2, Edit, ExternalLink, Save, X, BarChart3, Search, Filter } from 'lucide-react';
 
 interface Account {
   id: string;
   type: 'pph' | 'legal';
-  // PPH fields
   username?: string;
   websiteURL?: string;
   password?: string;
   deal?: string;
   ip?: string;
-  // Legal fields
   name?: string;
   sharePercentage?: number;
   depositAmount?: number;
-  // Common fields
   agentId: string;
   agentName: string;
   assignedToPlayerUid?: string;
@@ -28,6 +25,7 @@ interface Account {
 interface Agent {
   id: string;
   name: string;
+  accountCount: number;
 }
 
 export default function Accounts() {
@@ -52,6 +50,7 @@ export default function Accounts() {
   });
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'active' | 'inactive' | 'pph' | 'legal'>('all');
+  const [agentFilter, setAgentFilter] = useState<string>('all');
 
   useEffect(() => {
     fetchAccounts();
@@ -59,10 +58,8 @@ export default function Accounts() {
   }, []);
 
   useEffect(() => {
-    // Filter accounts based on search term and filter
     let filtered = accounts;
     
-    // Apply search filter
     if (searchTerm) {
       filtered = filtered.filter(account => {
         const searchableText = `${account.type === 'pph' ? account.username : account.name} ${account.agentName}`.toLowerCase();
@@ -70,7 +67,6 @@ export default function Accounts() {
       });
     }
     
-    // Apply status/type filter
     if (filter !== 'all') {
       if (filter === 'active' || filter === 'inactive') {
         filtered = filtered.filter(account => account.status === filter);
@@ -79,8 +75,12 @@ export default function Accounts() {
       }
     }
     
+    if (agentFilter !== 'all') {
+      filtered = filtered.filter(account => account.agentId === agentFilter);
+    }
+    
     setFilteredAccounts(filtered);
-  }, [accounts, searchTerm, filter]);
+  }, [accounts, searchTerm, filter, agentFilter]);
 
   const fetchAccounts = async () => {
     try {
@@ -89,11 +89,9 @@ export default function Accounts() {
         accountsSnapshot.docs.map(async (accountDoc) => {
           const accountData = accountDoc.data();
           
-          // Get agent name
           const agentDoc = await getDocs(query(collection(db, 'agents'), where('__name__', '==', accountData.agentId)));
           const agentName = agentDoc.docs[0]?.data().name || 'Unknown Agent';
           
-          // Get assigned player name if exists
           let assignedToPlayerName = '';
           if (accountData.assignedToPlayerUid) {
             const playerDoc = await getDocs(query(collection(db, 'users'), where('uid', '==', accountData.assignedToPlayerUid)));
@@ -103,8 +101,8 @@ export default function Accounts() {
           return {
             id: accountDoc.id,
             ...accountData,
-            type: accountData.type || 'pph', // Default to 'pph' if type is missing
-            status: accountData.status || 'active', // Default to 'active' if status is missing
+            type: accountData.type || 'pph',
+            status: accountData.status || 'active',
             agentName,
             assignedToPlayerName,
             createdAt: accountData.createdAt?.toDate() || new Date()
@@ -121,11 +119,21 @@ export default function Accounts() {
 
   const fetchAgents = async () => {
     try {
+      const accountsSnapshot = await getDocs(collection(db, 'accounts'));
+      const accountCounts: Record<string, number> = {};
+      
+      accountsSnapshot.forEach(doc => {
+        const agentId = doc.data().agentId;
+        accountCounts[agentId] = (accountCounts[agentId] || 0) + 1;
+      });
+
       const agentsSnapshot = await getDocs(collection(db, 'agents'));
       const agentsData = agentsSnapshot.docs.map(doc => ({
         id: doc.id,
-        ...doc.data()
-      })) as Agent[];
+        name: doc.data().name,
+        accountCount: accountCounts[doc.id] || 0
+      })).sort((a, b) => b.accountCount - a.accountCount);
+      
       setAgents(agentsData);
     } catch (error) {
       console.error('Error fetching agents:', error);
@@ -174,6 +182,7 @@ export default function Accounts() {
       });
       setShowModal(false);
       fetchAccounts();
+      fetchAgents();
     } catch (error) {
       console.error('Error adding account:', error);
     }
@@ -216,6 +225,7 @@ export default function Accounts() {
       try {
         await deleteDoc(doc(db, 'accounts', accountId));
         fetchAccounts();
+        fetchAgents();
       } catch (error) {
         console.error('Error deleting account:', error);
       }
@@ -230,9 +240,10 @@ export default function Accounts() {
     legal: accounts.filter(a => a.type === 'legal').length
   };
 
+  const dropdownArrowSvg = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23ffffff'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E")`;
+
   return (
     <div className="space-y-8">
-      {/* Header */}
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">
@@ -250,7 +261,6 @@ export default function Accounts() {
         </button>
       </div>
 
-      {/* Account Summary Stats */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <div className="bg-gradient-to-r from-blue-500/10 to-cyan-500/10 backdrop-blur-sm rounded-xl p-4 border border-blue-500/20">
           <div className="flex items-center justify-between">
@@ -299,21 +309,44 @@ export default function Accounts() {
         </div>
       </div>
 
-      {/* Search Bar */}
-      <div className="relative">
-        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-          <Search className="h-5 w-5 text-gray-400" />
+      <div className="flex flex-col md:flex-row gap-4">
+        <div className="relative flex-1">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <Search className="h-5 w-5 text-gray-400" />
+          </div>
+          <input
+            type="text"
+            placeholder="Search accounts..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-10 pr-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+          />
         </div>
-        <input
-          type="text"
-          placeholder="Search accounts..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full pl-10 pr-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-400"
-        />
+
+        <div className="relative flex-1">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <Filter className="h-5 w-5 text-gray-400" />
+          </div>
+          <select
+            value={agentFilter}
+            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setAgentFilter(e.target.value)}
+            className="appearance-none w-full pl-10 pr-8 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400 bg-no-repeat bg-[length:20px_20px] bg-[position:right_8px_center]"
+            style={{ backgroundImage: dropdownArrowSvg }}
+          >
+            <option value="all" className="bg-gray-800 text-white">All Agents</option>
+            {agents.map((agent) => (
+              <option 
+                key={agent.id} 
+                value={agent.id}
+                className="bg-gray-800 text-white hover:bg-cyan-500"
+              >
+                {agent.name} ({agent.accountCount})
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
-      {/* Filters */}
       <div className="flex space-x-4">
         {['all', 'active', 'inactive', 'pph', 'legal'].map((filterOption) => (
           <button
@@ -330,7 +363,6 @@ export default function Accounts() {
         ))}
       </div>
 
-      {/* Accounts Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {loading ? (
           <div className="col-span-full text-center py-12">
@@ -340,7 +372,9 @@ export default function Accounts() {
           <div className="col-span-full text-center py-12">
             <CreditCard className="w-12 h-12 text-gray-400 mx-auto mb-4" />
             <p className="text-gray-400">
-              {searchTerm || filter !== 'all' ? 'No accounts found matching your criteria.' : 'No accounts found. Create your first account!'}
+              {searchTerm || filter !== 'all' || agentFilter !== 'all' 
+                ? 'No accounts found matching your criteria.' 
+                : 'No accounts found. Create your first account!'}
             </p>
           </div>
         ) : (
@@ -354,19 +388,25 @@ export default function Accounts() {
                   <div className="flex items-center space-x-2 mb-4">
                     <select
                       value={editingAccount.type}
-                      onChange={(e) => setEditingAccount({ ...editingAccount, type: e.target.value as 'pph' | 'legal' })}
-                      className="px-3 py-1 bg-white/5 border border-purple-500/20 rounded text-white text-sm"
+                      onChange={(e: React.ChangeEvent<HTMLSelectElement>) => 
+                        setEditingAccount({ ...editingAccount, type: e.target.value as 'pph' | 'legal' })
+                      }
+                      className="appearance-none px-3 py-1 bg-white/5 border border-purple-500/20 rounded text-white text-sm pr-8 bg-no-repeat bg-[length:20px_20px] bg-[position:right_2px_center]"
+                      style={{ backgroundImage: dropdownArrowSvg }}
                     >
-                      <option value="pph">PPH</option>
-                      <option value="legal">Legal</option>
+                      <option value="pph" className="bg-gray-800 text-white">PPH</option>
+                      <option value="legal" className="bg-gray-800 text-white">Legal</option>
                     </select>
                     <select
                       value={editingAccount.status}
-                      onChange={(e) => setEditingAccount({ ...editingAccount, status: e.target.value as 'active' | 'inactive' })}
-                      className="px-3 py-1 bg-white/5 border border-purple-500/20 rounded text-white text-sm"
+                      onChange={(e: React.ChangeEvent<HTMLSelectElement>) => 
+                        setEditingAccount({ ...editingAccount, status: e.target.value as 'active' | 'inactive' })
+                      }
+                      className="appearance-none px-3 py-1 bg-white/5 border border-purple-500/20 rounded text-white text-sm pr-8 bg-no-repeat bg-[length:20px_20px] bg-[position:right_2px_center]"
+                      style={{ backgroundImage: dropdownArrowSvg }}
                     >
-                      <option value="active">Active</option>
-                      <option value="inactive">Inactive</option>
+                      <option value="active" className="bg-gray-800 text-white">Active</option>
+                      <option value="inactive" className="bg-gray-800 text-white">Inactive</option>
                     </select>
                   </div>
 
@@ -434,13 +474,16 @@ export default function Accounts() {
 
                   <select
                     value={editingAccount.agentId}
-                    onChange={(e) => setEditingAccount({ ...editingAccount, agentId: e.target.value })}
-                    className="w-full px-3 py-2 bg-white/5 border border-purple-500/20 rounded-lg text-white text-sm"
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => 
+                      setEditingAccount({ ...editingAccount, agentId: e.target.value })
+                    }
+                    className="appearance-none w-full px-3 py-2 bg-white/5 border border-purple-500/20 rounded-lg text-white text-sm pr-8 bg-no-repeat bg-[length:20px_20px] bg-[position:right_8px_center]"
+                    style={{ backgroundImage: dropdownArrowSvg }}
                   >
-                    <option value="">Select Agent</option>
+                    <option value="" className="bg-gray-800 text-white">Select Agent</option>
                     {agents.map((agent) => (
-                      <option key={agent.id} value={agent.id}>
-                        {agent.name}
+                      <option key={agent.id} value={agent.id} className="bg-gray-800 text-white hover:bg-cyan-500">
+                        {agent.name} ({agent.accountCount})
                       </option>
                     ))}
                   </select>
@@ -554,7 +597,6 @@ export default function Accounts() {
         )}
       </div>
 
-      {/* Add Account Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-black/80 backdrop-blur-lg rounded-xl p-8 border border-purple-500/20 w-full max-w-md max-h-[90vh] overflow-y-auto">
@@ -566,11 +608,14 @@ export default function Accounts() {
                 </label>
                 <select
                   value={newAccount.type}
-                  onChange={(e) => setNewAccount({ ...newAccount, type: e.target.value as 'pph' | 'legal' })}
-                  className="w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) => 
+                    setNewAccount({ ...newAccount, type: e.target.value as 'pph' | 'legal' })
+                  }
+                  className="appearance-none w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400 pr-10 bg-no-repeat bg-[length:20px_20px] bg-[position:right_10px_center]"
+                  style={{ backgroundImage: dropdownArrowSvg }}
                 >
-                  <option value="pph">PPH Account</option>
-                  <option value="legal">Legal Account</option>
+                  <option value="pph" className="bg-gray-800 text-white">PPH Account</option>
+                  <option value="legal" className="bg-gray-800 text-white">Legal Account</option>
                 </select>
               </div>
 
@@ -696,14 +741,17 @@ export default function Accounts() {
                 </label>
                 <select
                   value={newAccount.agentId}
-                  onChange={(e) => setNewAccount({ ...newAccount, agentId: e.target.value })}
-                  className="w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) => 
+                    setNewAccount({ ...newAccount, agentId: e.target.value })
+                  }
+                  className="appearance-none w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400 pr-10 bg-no-repeat bg-[length:20px_20px] bg-[position:right_10px_center]"
+                  style={{ backgroundImage: dropdownArrowSvg }}
                   required
                 >
-                  <option value="">Select an agent</option>
+                  <option value="" className="bg-gray-800 text-white">Select an agent</option>
                   {agents.map((agent) => (
-                    <option key={agent.id} value={agent.id}>
-                      {agent.name}
+                    <option key={agent.id} value={agent.id} className="bg-gray-800 text-white hover:bg-cyan-500">
+                      {agent.name} ({agent.accountCount})
                     </option>
                   ))}
                 </select>
@@ -715,11 +763,14 @@ export default function Accounts() {
                 </label>
                 <select
                   value={newAccount.status}
-                  onChange={(e) => setNewAccount({ ...newAccount, status: e.target.value as 'active' | 'inactive' })}
-                  className="w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) => 
+                    setNewAccount({ ...newAccount, status: e.target.value as 'active' | 'inactive' })
+                  }
+                  className="appearance-none w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400 pr-10 bg-no-repeat bg-[length:20px_20px] bg-[position:right_10px_center]"
+                  style={{ backgroundImage: dropdownArrowSvg }}
                 >
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
+                  <option value="active" className="bg-gray-800 text-white">Active</option>
+                  <option value="inactive" className="bg-gray-800 text-white">Inactive</option>
                 </select>
               </div>
 

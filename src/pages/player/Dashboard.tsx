@@ -36,10 +36,12 @@ export default function PlayerDashboard() {
   const [accountFilter, setAccountFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [playerPercentage, setPlayerPercentage] = useState<number>(0);
 
   useEffect(() => {
     if (userData?.uid) {
       fetchPlayerData();
+      fetchPlayerPercentage();
     }
   }, [userData]);
 
@@ -106,6 +108,28 @@ export default function PlayerDashboard() {
       setLoading(false);
     }
   };
+
+  const fetchPlayerPercentage = async () => {
+    if (!userData?.uid) return;
+    try {
+      // Try to get from users collection first
+      let playerDoc = await getDocs(query(collection(db, 'users'), where('uid', '==', userData.uid)));
+      let percentage = 0;
+      if (!playerDoc.empty) {
+        percentage = playerDoc.docs[0].data().percentage || 0;
+      } else {
+        // Fallback to players collection (inactive)
+        playerDoc = await getDocs(query(collection(db, 'players'), where('uid', '==', userData.uid)));
+        if (!playerDoc.empty) {
+          percentage = playerDoc.docs[0].data().percentage || 0;
+        }
+      }
+      setPlayerPercentage(percentage);
+    } catch (error) {
+      setPlayerPercentage(0);
+    }
+  };
+
   const handleEditEntry = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingEntry) return;
@@ -154,6 +178,8 @@ export default function PlayerDashboard() {
   const filteredAccounts = accountFilter === 'all' ? accounts : 
                           accountFilter === 'active' ? activeAccounts : inactiveAccounts;
 
+  const playerShare = totalProfit * (playerPercentage / 100);
+
   return (
     <div className="space-y-6 lg:space-y-8">
       {/* Header */}
@@ -199,10 +225,9 @@ export default function PlayerDashboard() {
         <div className="bg-gradient-to-r from-purple-500/10 to-pink-500/10 backdrop-blur-sm rounded-xl p-4 lg:p-6 border border-purple-500/20">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs lg:text-sm text-gray-400">Total Profit/Loss</p>
-              <p className={`text-xl lg:text-2xl font-bold ${totalProfit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                ${totalProfit.toLocaleString()}
-              </p>
+              <p className="text-xs lg:text-sm text-gray-400">Total Profit/Loss (Company)</p>
+              <p className={`text-xl lg:text-2xl font-bold ${totalProfit >= 0 ? 'text-green-400' : 'text-red-400'}`}>${totalProfit.toLocaleString()}</p>
+              <p className="text-xs lg:text-sm text-gray-400 mt-1">Your Share ({playerPercentage}%): <span className={`font-bold ${playerShare >= 0 ? 'text-green-400' : 'text-red-400'}`}>${playerShare.toLocaleString()}</span></p>
             </div>
             <TrendingUp className="w-6 h-6 lg:w-8 lg:h-8 text-purple-400" />
           </div>

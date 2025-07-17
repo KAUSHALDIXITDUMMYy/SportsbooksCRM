@@ -7,6 +7,7 @@ interface Agent {
   id: string;
   name: string;
   commissionPercentage: number;
+  flatCommission?: number;
   createdAt: Date;
 }
 
@@ -18,7 +19,8 @@ export default function Agents() {
   const [editingAgent, setEditingAgent] = useState<Agent | null>(null);
   const [newAgent, setNewAgent] = useState({
     name: '',
-    commissionPercentage: 0
+    commissionPercentage: '',
+    flatCommission: ''
   });
   const [loading, setLoading] = useState(true);
 
@@ -58,9 +60,10 @@ export default function Agents() {
       await addDoc(collection(db, 'agents'), {
         name: newAgent.name.trim(),
         commissionPercentage: newAgent.commissionPercentage,
+        flatCommission: Number(newAgent.flatCommission) || 0,
         createdAt: new Date()
       });
-      setNewAgent({ name: '', commissionPercentage: 0 });
+      setNewAgent({ name: '', commissionPercentage: 0, flatCommission: 0 });
       setShowModal(false);
       fetchAgents();
     } catch (error) {
@@ -76,6 +79,7 @@ export default function Agents() {
       await updateDoc(doc(db, 'agents', editingAgent.id), {
         name: editingAgent.name.trim(),
         commissionPercentage: editingAgent.commissionPercentage,
+        flatCommission: Number(editingAgent.flatCommission) || 0,
         updatedAt: new Date()
       });
       setEditingAgent(null);
@@ -167,11 +171,27 @@ export default function Agents() {
                         min="0"
                         max="100"
                         value={editingAgent.commissionPercentage}
-                        onChange={(e) => setEditingAgent({ ...editingAgent, commissionPercentage: parseFloat(e.target.value) || 0 })}
+                        onChange={(e) => setEditingAgent({ ...editingAgent, commissionPercentage: parseFloat(e.target.value) || null })}
                         className="w-full px-3 py-2 pr-8 bg-white/5 border border-purple-500/20 rounded-lg text-white"
                         required
                       />
                       <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400">%</span>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm text-gray-400 mb-1">Flat Commission</label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={editingAgent?.flatCommission}
+                        onChange={(e) => setEditingAgent(editingAgent ? { ...editingAgent, flatCommission: Number(e.target.value) } : null)}
+                        className="w-full px-3 py-2 pr-8 bg-white/5 border border-purple-500/20 rounded-lg text-white"
+                        placeholder="Flat Commission (absolute)"
+                        required
+                      />
+                      <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400">$</span>
                     </div>
                   </div>
                   <div className="flex space-x-2">
@@ -200,7 +220,7 @@ export default function Agents() {
                       <div>
                         <h3 className="text-lg font-semibold text-white">{agent.name}</h3>
                         <p className="text-sm text-gray-400">
-                          Commission: {agent.commissionPercentage}%
+                          Commission: {agent.commissionPercentage}% + ${agent.flatCommission || 0} flat
                         </p>
                       </div>
                     </div>
@@ -266,6 +286,21 @@ export default function Agents() {
                   />
                   <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400">%</span>
                 </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Flat Commission (absolute)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={newAgent.flatCommission}
+                  onChange={(e) => setNewAgent({ ...newAgent, flatCommission: Number(e.target.value) })}
+                  className="w-full px-4 py-3 pr-8 bg-white/5 border border-purple-500/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                  placeholder="Enter flat commission amount"
+                  required
+                />
               </div>
               <div className="flex justify-end space-x-4 mt-6">
                 <button

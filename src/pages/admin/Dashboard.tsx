@@ -23,6 +23,7 @@ interface AgentStats {
   playerCount: number;
   totalProfit: number;
   commissionPercentage: number;
+  flatCommission?: number;
 }
 
 interface PlayerStats {
@@ -130,9 +131,9 @@ export default function Dashboard() {
         agents.map(async (agent) => {
           const agentAccounts = accounts.filter(acc => acc.agentId === agent.id);
           const assignedPlayerUids = [...new Set(agentAccounts.map(acc => acc.assignedToPlayerUid).filter(Boolean))];
-          
+
           // Calculate profit for this agent's accounts
-          const agentEntries = entries.filter(entry => 
+          const agentEntries = entries.filter(entry =>
             agentAccounts.some(acc => acc.id === entry.accountId)
           );
           const agentProfit = agentEntries.reduce((sum, entry) => sum + (entry.profitLoss || 0), 0);
@@ -143,7 +144,8 @@ export default function Dashboard() {
             accountCount: agentAccounts.length,
             playerCount: assignedPlayerUids.length,
             totalProfit: agentProfit,
-            commissionPercentage: agent.commissionPercentage || 0
+            commissionPercentage: agent.commissionPercentage || 0,
+            flatCommission: agent.flatCommission || 0
           };
         })
       );
@@ -172,14 +174,14 @@ export default function Dashboard() {
           // Get agent name
           const agent = agents.find(a => a.id === account.agentId);
           const agentName = agent?.name || 'Unknown Agent';
-          
+
           // Get assigned player name if exists
           let assignedToPlayerName = '';
           if (account.assignedToPlayerUid) {
             const player = players.find(p => p.uid === account.assignedToPlayerUid);
             assignedToPlayerName = player?.name || 'Unknown Player';
           }
-          
+
           // Calculate profit for this account
           const accountEntries = entries.filter(entry => entry.accountId === account.id);
           const accountProfit = accountEntries.reduce((sum, entry) => sum + (entry.profitLoss || 0), 0);
@@ -228,9 +230,9 @@ export default function Dashboard() {
       case 'month':
         return { startDate: startOfDay(subDays(now, 30)), endDate: endOfDay(now) };
       case 'custom':
-        return { 
-          startDate: startOfDay(parseISO(customDateRange.startDate)), 
-          endDate: endOfDay(parseISO(customDateRange.endDate)) 
+        return {
+          startDate: startOfDay(parseISO(customDateRange.startDate)),
+          endDate: endOfDay(parseISO(customDateRange.endDate))
         };
       default:
         return { startDate: startOfDay(now), endDate: endOfDay(now) };
@@ -242,20 +244,20 @@ export default function Dashboard() {
       case 'active':
         return {
           accounts: stats.activeAccounts,
-          agents: agentStats.filter(agent => 
+          agents: agentStats.filter(agent =>
             accountStats.some(acc => acc.agentName === agent.name && acc.status === 'active')
           ).length,
-          players: playerStats.filter(player => 
+          players: playerStats.filter(player =>
             accountStats.some(acc => acc.assignedToPlayerName === player.name && acc.status === 'active')
           ).length
         };
       case 'inactive':
         return {
           accounts: stats.inactiveAccounts,
-          agents: agentStats.filter(agent => 
+          agents: agentStats.filter(agent =>
             accountStats.some(acc => acc.agentName === agent.name && acc.status === 'inactive')
           ).length,
-          players: playerStats.filter(player => 
+          players: playerStats.filter(player =>
             accountStats.some(acc => acc.assignedToPlayerName === player.name && acc.status === 'inactive')
           ).length
         };
@@ -311,22 +313,35 @@ export default function Dashboard() {
           </h1>
           <p className="text-gray-400 mt-1">Monitor your vjack.co platform performance</p>
         </div>
-        
+
         <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-4 sm:space-y-0 sm:space-x-4">
-          <div className="flex items-center space-x-2">
-            <Filter className="w-5 h-5 text-gray-400" />
-            <select
-              value={dateFilter}
-              onChange={(e) => setDateFilter(e.target.value)}
-              className="bg-white/5 border border-purple-500/20 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
-            >
-              <option value="today">Today</option>
-              <option value="week">This Week</option>
-              <option value="month">This Month</option>
-              <option value="custom">Custom Range</option>
-            </select>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-4 sm:space-y-0 sm:space-x-4">
+            <div className="flex items-center space-x-2">
+              <Filter className="w-5 h-5 text-gray-400" />
+              <select
+                value={dateFilter}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setDateFilter(e.target.value)}
+                className="appearance-none bg-white/5 border border-purple-500/20 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-cyan-400 pr-8 bg-[length:20px_20px] bg-[position:right_8px_center] bg-no-repeat"
+                style={{
+                  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23ffffff'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E")`
+                }}
+              >
+                <option value="today" className="bg-gray-800 text-white hover:bg-cyan-500">
+                  Today
+                </option>
+                <option value="week" className="bg-gray-800 text-white hover:bg-cyan-500">
+                  This Week
+                </option>
+                <option value="month" className="bg-gray-800 text-white hover:bg-cyan-500">
+                  This Month
+                </option>
+                <option value="custom" className="bg-gray-800 text-white hover:bg-cyan-500">
+                  Custom Range
+                </option>
+              </select>
+            </div>
           </div>
-          
+
           {dateFilter === 'custom' && (
             <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-2">
               <input
@@ -360,11 +375,10 @@ export default function Dashboard() {
             <button
               key={mode.key}
               onClick={() => setViewMode(mode.key as any)}
-              className={`flex items-center space-x-2 px-3 lg:px-4 py-2 rounded-lg transition-all duration-200 ${
-                viewMode === mode.key
+              className={`flex items-center space-x-2 px-3 lg:px-4 py-2 rounded-lg transition-all duration-200 ${viewMode === mode.key
                   ? 'bg-gradient-to-r from-cyan-500 to-purple-500 text-white'
                   : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10'
-              }`}
+                }`}
             >
               <Icon className="w-4 h-4 lg:w-5 lg:h-5" />
               <span className="text-sm lg:text-base">{mode.label}</span>
@@ -387,11 +401,10 @@ export default function Dashboard() {
                 <button
                   key={filter.key}
                   onClick={() => setOverviewFilter(filter.key as any)}
-                  className={`px-3 py-1 rounded-lg transition-all duration-200 text-sm ${
-                    overviewFilter === filter.key
+                  className={`px-3 py-1 rounded-lg transition-all duration-200 text-sm ${overviewFilter === filter.key
                       ? 'bg-gradient-to-r from-cyan-500 to-purple-500 text-white'
                       : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10'
-                  }`}
+                    }`}
                 >
                   {filter.label}
                 </button>
@@ -430,23 +443,23 @@ export default function Dashboard() {
               <CreditCard className="w-5 h-5 lg:w-6 lg:h-6 mr-2" />
               Account Summary
             </h2>
-            
+
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
               <div className="bg-gradient-to-r from-blue-500/10 to-cyan-500/10 rounded-lg p-4 border border-blue-500/20">
                 <p className="text-sm text-gray-400">Total Accounts</p>
                 <p className="text-xl lg:text-2xl font-bold text-blue-400">{stats.totalAccounts}</p>
               </div>
-              
+
               <div className="bg-gradient-to-r from-green-500/10 to-emerald-500/10 rounded-lg p-4 border border-green-500/20">
                 <p className="text-sm text-gray-400">Active Accounts</p>
                 <p className="text-xl lg:text-2xl font-bold text-green-400">{stats.activeAccounts}</p>
               </div>
-              
+
               <div className="bg-gradient-to-r from-red-500/10 to-pink-500/10 rounded-lg p-4 border border-red-500/20">
                 <p className="text-sm text-gray-400">Inactive Accounts</p>
                 <p className="text-xl lg:text-2xl font-bold text-red-400">{stats.inactiveAccounts}</p>
               </div>
-              
+
               <div className="bg-gradient-to-r from-purple-500/10 to-pink-500/10 rounded-lg p-4 border border-purple-500/20">
                 <p className="text-sm text-gray-400">Account Utilization</p>
                 <p className="text-xl lg:text-2xl font-bold text-purple-400">
@@ -462,7 +475,7 @@ export default function Dashboard() {
               <h2 className="text-lg lg:text-xl font-bold text-white">Profit/Loss Summary</h2>
               <Calendar className="w-5 h-5 text-gray-400" />
             </div>
-            
+
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
               <div className="bg-gradient-to-r from-green-500/10 to-emerald-500/10 rounded-lg p-4 border border-green-500/20">
                 <p className="text-sm text-gray-400">Total Profit/Loss</p>
@@ -470,14 +483,14 @@ export default function Dashboard() {
                   {loading ? '...' : `$${stats.totalProfit.toLocaleString()}`}
                 </p>
               </div>
-              
+
               <div className="bg-gradient-to-r from-blue-500/10 to-cyan-500/10 rounded-lg p-4 border border-blue-500/20">
                 <p className="text-sm text-gray-400">Avg Per Transaction</p>
                 <p className="text-xl lg:text-2xl font-bold text-cyan-400">
                   {loading ? '...' : `$${stats.totalTransactions > 0 ? (stats.totalProfit / stats.totalTransactions).toFixed(2) : '0.00'}`}
                 </p>
               </div>
-              
+
               <div className="bg-gradient-to-r from-purple-500/10 to-pink-500/10 rounded-lg p-4 border border-purple-500/20">
                 <p className="text-sm text-gray-400">Total Transactions</p>
                 <p className="text-xl lg:text-2xl font-bold text-purple-400">
@@ -495,7 +508,7 @@ export default function Dashboard() {
             <Users className="w-5 h-5 lg:w-6 lg:h-6 mr-2" />
             Agent Performance Dashboard
           </h2>
-          
+
           {loading ? (
             <div className="text-center py-8">
               <div className="text-gray-400">Loading agent data...</div>
@@ -510,7 +523,7 @@ export default function Dashboard() {
                   <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
                     <div>
                       <h3 className="text-lg font-semibold text-white">{agent.name}</h3>
-                      <p className="text-sm text-gray-400">Commission: {agent.commissionPercentage}%</p>
+                      <p className="text-sm text-gray-400">Commission: {agent.commissionPercentage}% + ${agent.flatCommission || 0} flat</p>
                     </div>
                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 text-center">
                       <div>
@@ -530,7 +543,7 @@ export default function Dashboard() {
                       <div>
                         <p className="text-sm text-gray-400">Commission Earned</p>
                         <p className="text-lg lg:text-xl font-bold text-yellow-400">
-                          ${((agent.totalProfit * agent.commissionPercentage) / 100).toLocaleString()}
+                          ${((agent.totalProfit * agent.commissionPercentage) / 100 + (agent.flatCommission || 0)).toLocaleString()}
                         </p>
                       </div>
                     </div>
@@ -548,7 +561,7 @@ export default function Dashboard() {
             <UserPlus className="w-5 h-5 lg:w-6 lg:h-6 mr-2" />
             Player Performance Dashboard
           </h2>
-          
+
           {loading ? (
             <div className="text-center py-8">
               <div className="text-gray-400">Loading player data...</div>
@@ -595,7 +608,7 @@ export default function Dashboard() {
             <CreditCard className="w-5 h-5 lg:w-6 lg:h-6 mr-2" />
             Account Performance Dashboard
           </h2>
-          
+
           {loading ? (
             <div className="text-center py-8">
               <div className="text-gray-400">Loading account data...</div>
@@ -605,29 +618,26 @@ export default function Dashboard() {
               {accountStats.map((account) => (
                 <div
                   key={account.id}
-                  className={`rounded-lg p-4 border ${
-                    account.status === 'active' 
-                      ? 'bg-gradient-to-r from-green-500/10 to-emerald-500/10 border-green-500/20' 
+                  className={`rounded-lg p-4 border ${account.status === 'active'
+                      ? 'bg-gradient-to-r from-green-500/10 to-emerald-500/10 border-green-500/20'
                       : 'bg-gradient-to-r from-red-500/10 to-pink-500/10 border-red-500/20'
-                  }`}
+                    }`}
                 >
                   <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
                     <div>
                       <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-3 space-y-2 sm:space-y-0">
                         <h3 className="text-lg font-semibold text-white">{account.name}</h3>
                         <div className="flex items-center space-x-2">
-                          <span className={`px-2 py-1 rounded-full text-xs ${
-                            account.type === 'pph' 
-                              ? 'bg-purple-500/20 text-purple-400' 
+                          <span className={`px-2 py-1 rounded-full text-xs ${account.type === 'pph'
+                              ? 'bg-purple-500/20 text-purple-400'
                               : 'bg-orange-500/20 text-orange-400'
-                          }`}>
+                            }`}>
                             {account.type.toUpperCase()}
                           </span>
-                          <span className={`px-2 py-1 rounded-full text-xs ${
-                            account.status === 'active' 
-                              ? 'bg-green-500/20 text-green-400' 
+                          <span className={`px-2 py-1 rounded-full text-xs ${account.status === 'active'
+                              ? 'bg-green-500/20 text-green-400'
                               : 'bg-red-500/20 text-red-400'
-                          }`}>
+                            }`}>
                             {account.status}
                           </span>
                         </div>
@@ -657,7 +667,7 @@ export default function Dashboard() {
         </div>
       )}
 
-     
+
     </div>
   );
 }

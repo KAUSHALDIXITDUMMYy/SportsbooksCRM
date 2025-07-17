@@ -37,18 +37,18 @@ export default function Assignments() {
       const accountsData = await Promise.all(
         accountsSnapshot.docs.map(async (accountDoc) => {
           const accountData = accountDoc.data();
-          
+
           // Get agent name
           const agentDoc = await getDocs(query(collection(db, 'agents'), where('__name__', '==', accountData.agentId)));
           const agentName = agentDoc.docs[0]?.data().name || 'Unknown Agent';
-          
+
           // Get assigned player name if exists
           let assignedToPlayerName = '';
           if (accountData.assignedToPlayerUid) {
             const playerDoc = await getDocs(query(collection(db, 'users'), where('uid', '==', accountData.assignedToPlayerUid)));
             assignedToPlayerName = playerDoc.docs[0]?.data().name || 'Unknown Player';
           }
-          
+
           return {
             id: accountDoc.id,
             username: accountData.username,
@@ -124,45 +124,65 @@ export default function Assignments() {
           <Settings className="w-6 h-6 mr-2" />
           New Assignment
         </h2>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
+
+        <div>
+          {/* Account Dropdown */}
+          <div className="mb-4">
             <label className="block text-sm font-medium text-gray-300 mb-2">
               Select Account
             </label>
             <select
               value={selectedAccount}
-              onChange={(e) => setSelectedAccount(e.target.value)}
-              className="w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
+              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedAccount(e.target.value)}
+              className="w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400 appearance-none pr-10 bg-[length:20px_20px] bg-[position:right_10px_center] bg-no-repeat"
+              style={{
+                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23ffffff'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E")`
+              }}
             >
-              <option value="">Choose an account</option>
+              <option value="" className="bg-gray-800 text-white">
+                Choose an account
+              </option>
               {accounts.filter(account => !account.assignedToPlayerUid).map((account) => (
-                <option key={account.id} value={account.id}>
+                <option
+                  key={account.id}
+                  value={account.id}
+                  className="bg-gray-800 text-white hover:bg-cyan-500"
+                >
                   {account.username} ({account.agentName})
                 </option>
               ))}
             </select>
           </div>
-          
+
+          {/* Player Dropdown */}
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
               Select Player
             </label>
             <select
               value={selectedPlayer}
-              onChange={(e) => setSelectedPlayer(e.target.value)}
-              className="w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
+              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedPlayer(e.target.value)}
+              className="w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400 appearance-none pr-10 bg-[length:20px_20px] bg-[position:right_10px_center] bg-no-repeat"
+              style={{
+                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23ffffff'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E")`
+              }}
             >
-              <option value="">Choose a player</option>
+              <option value="" className="bg-gray-800 text-white">
+                Choose a player
+              </option>
               {players.map((player) => (
-                <option key={player.id} value={player.uid}>
+                <option
+                  key={player.id}
+                  value={player.uid}
+                  className="bg-gray-800 text-white hover:bg-cyan-500"
+                >
                   {player.name} ({player.email})
                 </option>
               ))}
             </select>
           </div>
         </div>
-        
+
         <div className="mt-6">
           <button
             onClick={handleAssignAccount}
@@ -177,7 +197,7 @@ export default function Assignments() {
       {/* Current Assignments */}
       <div className="bg-black/20 backdrop-blur-sm rounded-xl p-6 border border-purple-500/20">
         <h2 className="text-xl font-bold text-white mb-6">Current Assignments</h2>
-        
+
         {loading ? (
           <div className="text-center py-8">
             <div className="text-gray-400">Loading assignments...</div>
@@ -187,18 +207,16 @@ export default function Assignments() {
             {accounts.map((account) => (
               <div
                 key={account.id}
-                className={`flex items-center justify-between p-4 rounded-lg border ${
-                  account.assignedToPlayerUid
+                className={`flex items-center justify-between p-4 rounded-lg border ${account.assignedToPlayerUid
                     ? 'bg-green-500/10 border-green-500/20'
                     : 'bg-yellow-500/10 border-yellow-500/20'
-                }`}
+                  }`}
               >
                 <div className="flex items-center space-x-4">
-                  <div className={`p-2 rounded-lg ${
-                    account.assignedToPlayerUid
+                  <div className={`p-2 rounded-lg ${account.assignedToPlayerUid
                       ? 'bg-green-500/20'
                       : 'bg-yellow-500/20'
-                  }`}>
+                    }`}>
                     <CreditCard className="w-5 h-5 text-white" />
                   </div>
                   <div>
@@ -206,7 +224,7 @@ export default function Assignments() {
                     <p className="text-sm text-gray-400">Agent: {account.agentName}</p>
                   </div>
                 </div>
-                
+
                 <div className="flex items-center space-x-4">
                   {account.assignedToPlayerUid ? (
                     <>
