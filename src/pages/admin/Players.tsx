@@ -170,9 +170,9 @@ export default function Players() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">
-            Players Management
+            Clickers Management
           </h1>
-          <p className="text-gray-400 mt-1">Manage active and inactive player accounts</p>
+          <p className="text-gray-400 mt-1">Manage active and inactive clicker accounts</p>
         </div>
         
         <button
@@ -180,7 +180,7 @@ export default function Players() {
           className="bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white font-medium py-3 px-6 rounded-lg transition-all duration-200 transform hover:scale-105 flex items-center space-x-2"
         >
           <Plus className="w-5 h-5" />
-          <span>Add New Player</span>
+          <span>Add New Clicker</span>
         </button>
       </div>
 
@@ -191,7 +191,7 @@ export default function Players() {
         </div>
         <input
           type="text"
-          placeholder="Search players..."
+          placeholder="Search clickers..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="w-full pl-10 pr-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-400"
@@ -209,8 +209,8 @@ export default function Players() {
               <UserCheck className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-white">Active Players</h2>
-              <p className="text-sm text-gray-400">{activePlayers.length} registered players</p>
+              <h2 className="text-xl font-bold text-white">Active Clickers</h2>
+              <p className="text-sm text-gray-400">{activePlayers.length} registered clickers</p>
             </div>
           </div>
           {activePlayersExpanded ? (
@@ -224,13 +224,13 @@ export default function Players() {
           <div className="p-6 pt-0">
             {loading ? (
               <div className="text-center py-8">
-                <div className="text-gray-400">Loading active players...</div>
+                <div className="text-gray-400">Loading active clickers...</div>
               </div>
             ) : filteredActivePlayers.length === 0 ? (
               <div className="text-center py-8">
                 <UserCheck className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                 <p className="text-gray-400">
-                  {searchTerm ? 'No active players found matching your search.' : 'No active players found.'}
+                  {searchTerm ? 'No active clickers found matching your search.' : 'No active clickers found.'}
                 </p>
               </div>
             ) : (
@@ -341,8 +341,8 @@ export default function Players() {
               <UserX className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-white">Inactive Players</h2>
-              <p className="text-sm text-gray-400">{inactivePlayers.length} pending players</p>
+              <h2 className="text-xl font-bold text-white">Inactive Clickers</h2>
+              <p className="text-sm text-gray-400">{inactivePlayers.length} pending clickers</p>
             </div>
           </div>
           {inactivePlayersExpanded ? (
@@ -356,13 +356,13 @@ export default function Players() {
           <div className="p-6 pt-0">
             {loading ? (
               <div className="text-center py-8">
-                <div className="text-gray-400">Loading inactive players...</div>
+                <div className="text-gray-400">Loading inactive clickers...</div>
               </div>
             ) : filteredInactivePlayers.length === 0 ? (
               <div className="text-center py-8">
                 <UserX className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                 <p className="text-gray-400">
-                  {searchTerm ? 'No inactive players found matching your search.' : 'No inactive players found.'}
+                  {searchTerm ? 'No inactive clickers found matching your search.' : 'No inactive clickers found.'}
                 </p>
               </div>
             ) : (
@@ -468,7 +468,7 @@ export default function Players() {
       {showModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-black/80 backdrop-blur-lg rounded-xl p-8 border border-purple-500/20 w-full max-w-md">
-            <h2 className="text-2xl font-bold text-white mb-6">Add New Player</h2>
+            <h2 className="text-2xl font-bold text-white mb-6">Add New Clicker</h2>
             <form onSubmit={handleAddPlayer} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -479,7 +479,7 @@ export default function Players() {
                   value={newPlayer.name}
                   onChange={(e) => setNewPlayer({ ...newPlayer, name: e.target.value })}
                   className="w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-400"
-                  placeholder="Enter player name"
+                  placeholder="Enter clicker name"
                   required
                 />
               </div>
@@ -520,7 +520,7 @@ export default function Players() {
                   value={newPlayer.percentage}
                   onChange={(e) => setNewPlayer({ ...newPlayer, percentage: Number(e.target.value) })}
                   className="w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-400"
-                  placeholder="Enter player percentage"
+                  placeholder="Enter clicker percentage"
                   required
                 />
               </div>
@@ -536,7 +536,7 @@ export default function Players() {
                   type="submit"
                   className="bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white font-medium py-3 px-6 rounded-lg transition-all duration-200"
                 >
-                  Add Player
+                  Add Clicker
                 </button>
               </div>
             </form>

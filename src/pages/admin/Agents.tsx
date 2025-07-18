@@ -90,7 +90,7 @@ export default function Agents() {
   };
 
   const handleDeleteAgent = async (agentId: string) => {
-    if (window.confirm('Are you sure you want to delete this agent?')) {
+    if (window.confirm('Are you sure you want to delete this account holder?')) {
       try {
         await deleteDoc(doc(db, 'agents', agentId));
         fetchAgents();
@@ -106,9 +106,9 @@ export default function Agents() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">
-            Agents Management
+            Account Holders Management
           </h1>
-          <p className="text-gray-400 mt-1">Manage your account providers and their commission rates</p>
+          <p className="text-gray-400 mt-1">Manage your account holders and their commission rates</p>
         </div>
         
         <button
@@ -116,7 +116,7 @@ export default function Agents() {
           className="bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white font-medium py-3 px-6 rounded-lg transition-all duration-200 transform hover:scale-105 flex items-center space-x-2"
         >
           <Plus className="w-5 h-5" />
-          <span>Add New Agent</span>
+          <span>Add New Account Holder</span>
         </button>
       </div>
 
@@ -127,7 +127,7 @@ export default function Agents() {
         </div>
         <input
           type="text"
-          placeholder="Search agents..."
+          placeholder="Search account holders..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="w-full pl-10 pr-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-400"
@@ -138,13 +138,13 @@ export default function Agents() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {loading ? (
           <div className="col-span-full text-center py-12">
-            <div className="text-gray-400">Loading agents...</div>
+            <div className="text-gray-400">Loading account holders...</div>
           </div>
         ) : filteredAgents.length === 0 ? (
           <div className="col-span-full text-center py-12">
             <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
             <p className="text-gray-400">
-              {searchTerm ? 'No agents found matching your search.' : 'No agents found. Create your first agent!'}
+              {searchTerm ? 'No account holders found matching your search.' : 'No account holders found. Create your first account holder!'}
             </p>
           </div>
         ) : (
@@ -253,18 +253,18 @@ export default function Agents() {
       {showModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-black/80 backdrop-blur-lg rounded-xl p-8 border border-purple-500/20 w-full max-w-md">
-            <h2 className="text-2xl font-bold text-white mb-6">Add New Agent</h2>
+            <h2 className="text-2xl font-bold text-white mb-6">Add New Account Holder</h2>
             <form onSubmit={handleAddAgent} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Agent Name
+                  Account Holder Name
                 </label>
                 <input
                   type="text"
                   value={newAgent.name}
                   onChange={(e) => setNewAgent({ ...newAgent, name: e.target.value })}
                   className="w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-400"
-                  placeholder="Enter agent name"
+                  placeholder="Enter account holder name"
                   required
                 />
               </div>
@@ -314,7 +314,7 @@ export default function Agents() {
                   type="submit"
                   className="bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white font-medium py-3 px-6 rounded-lg transition-all duration-200"
                 >
-                  Add Agent
+                  Add Account Holder
                 </button>
               </div>
             </form>

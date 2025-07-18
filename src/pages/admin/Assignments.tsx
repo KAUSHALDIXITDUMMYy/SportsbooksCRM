@@ -157,7 +157,7 @@ export default function Assignments() {
           {/* Player Dropdown */}
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
-              Select Player
+              Choose a Clicker
             </label>
             <select
               value={selectedPlayer}
@@ -168,7 +168,7 @@ export default function Assignments() {
               }}
             >
               <option value="" className="bg-gray-800 text-white">
-                Choose a player
+                Choose a clicker
               </option>
               {players.map((player) => (
                 <option

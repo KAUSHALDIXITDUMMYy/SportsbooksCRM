@@ -274,7 +274,7 @@ export default function Dashboard() {
 
   const statCards = [
     {
-      title: 'Total Agents',
+      title: 'Total Account Holders',
       value: filteredStats.agents,
       icon: Users,
       color: 'from-cyan-500 to-blue-500',
@@ -295,7 +295,7 @@ export default function Dashboard() {
       bgColor: 'bg-green-500/10'
     },
     {
-      title: 'Total Players',
+      title: 'Total Clickers',
       value: filteredStats.players,
       icon: UserPlus,
       color: 'from-orange-500 to-red-500',
@@ -366,8 +366,8 @@ export default function Dashboard() {
       <div className="flex flex-wrap gap-2">
         {[
           { key: 'overview', label: 'Overview', icon: BarChart3 },
-          { key: 'agents', label: 'Agent Dashboard', icon: Users },
-          { key: 'players', label: 'Player Dashboard', icon: UserPlus },
+          { key: 'agents', label: 'Account Holder Dashboard', icon: Users },
+          { key: 'players', label: 'Clicker Dashboard', icon: UserPlus },
           { key: 'accounts', label: 'Account Dashboard', icon: CreditCard }
         ].map((mode) => {
           const Icon = mode.icon;
@@ -506,7 +506,7 @@ export default function Dashboard() {
         <div className="bg-black/20 backdrop-blur-sm rounded-xl p-4 lg:p-6 border border-purple-500/20">
           <h2 className="text-lg lg:text-xl font-bold text-white mb-4 lg:mb-6 flex items-center">
             <Users className="w-5 h-5 lg:w-6 lg:h-6 mr-2" />
-            Agent Performance Dashboard
+            Account Holder Performance Dashboard
           </h2>
 
           {loading ? (
@@ -559,7 +559,7 @@ export default function Dashboard() {
         <div className="bg-black/20 backdrop-blur-sm rounded-xl p-4 lg:p-6 border border-purple-500/20">
           <h2 className="text-lg lg:text-xl font-bold text-white mb-4 lg:mb-6 flex items-center">
             <UserPlus className="w-5 h-5 lg:w-6 lg:h-6 mr-2" />
-            Player Performance Dashboard
+            Clicker Performance Dashboard
           </h2>
 
           {loading ? (
