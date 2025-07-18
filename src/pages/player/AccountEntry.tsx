@@ -423,18 +423,7 @@ export default function AccountEntry() {
               />
             </div>
             
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Compliance Review
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                value={currentEntry.complianceReview === 0 ? '' : currentEntry.complianceReview}
-                onChange={(e) => handleInputChange('complianceReview', e.target.value)}
-                className="w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
-              />
-            </div>
+           
             
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
