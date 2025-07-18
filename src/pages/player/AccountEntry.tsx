@@ -26,7 +26,7 @@ interface Entry {
   endingBalance: number;
   refillAmount: number;
   withdrawal: number;
-  complianceReview: number;
+  complianceReview: string;
   profitLoss: number;
   clickerSettled: string;
   clickerAmount: number;
@@ -55,7 +55,7 @@ export default function AccountEntry() {
     endingBalance: 0,
     refillAmount: 0,
     withdrawal: 0,
-    complianceReview: 0,
+    complianceReview: 'Requested Document',
     profitLoss: 0,
     clickerSettled: 'No',
     clickerAmount: 0,
@@ -158,14 +158,18 @@ export default function AccountEntry() {
   const handleInputChange = (field: keyof Entry, value: string) => {
     setCurrentEntry(prev => ({
       ...prev,
-      [field]: value === '' ? '' : isNaN(Number(value)) ? prev[field] : Number(value)
+      [field]: field === 'startingBalance' || field === 'endingBalance' || field === 'refillAmount' || field === 'withdrawal' || field === 'profitLoss' || field === 'clickerAmount' || field === 'accHolderAmount' || field === 'companyAmount' || field === 'taxableAmount' || field === 'referralAmount'
+        ? (value === '' ? '' : Number(value))
+        : value
     }));
   };
 
   const handleEditInputChange = (field: keyof Entry, value: string) => {
     setEditingEntry(prev => prev ? ({
       ...prev,
-      [field]: value === '' ? '' : isNaN(Number(value)) ? prev[field] : Number(value)
+      [field]: field === 'startingBalance' || field === 'endingBalance' || field === 'refillAmount' || field === 'withdrawal' || field === 'profitLoss' || field === 'clickerAmount' || field === 'accHolderAmount' || field === 'companyAmount' || field === 'taxableAmount' || field === 'referralAmount'
+        ? (value === '' ? '' : Number(value))
+        : value
     }) : null);
   };
 
@@ -180,7 +184,7 @@ export default function AccountEntry() {
         endingBalance: currentEntry.endingBalance || 0,
         refillAmount: currentEntry.refillAmount || 0,
         withdrawal: currentEntry.withdrawal || 0,
-        complianceReview: currentEntry.complianceReview || 0,
+        complianceReview: currentEntry.complianceReview || 'Requested Document',
         clickerAmount: currentEntry.clickerAmount || 0,
         accHolderAmount: currentEntry.accHolderAmount || 0,
         companyAmount: currentEntry.companyAmount || 0,
@@ -227,7 +231,7 @@ export default function AccountEntry() {
         endingBalance: editingEntry.endingBalance || 0,
         refillAmount: editingEntry.refillAmount || 0,
         withdrawal: editingEntry.withdrawal || 0,
-        complianceReview: editingEntry.complianceReview || 0,
+        complianceReview: editingEntry.complianceReview || 'Requested Document',
         clickerAmount: editingEntry.clickerAmount || 0,
         accHolderAmount: editingEntry.accHolderAmount || 0,
         companyAmount: editingEntry.companyAmount || 0,
@@ -423,7 +427,22 @@ export default function AccountEntry() {
               />
             </div>
             
-           
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Compliance Review
+              </label>
+              <select
+                value={currentEntry.complianceReview}
+                onChange={(e) => handleInputChange('complianceReview', e.target.value)}
+                className="w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:bg-gray-800"
+                required
+              >
+                <option className="bg-gray-800 text-white" value="Requested Document">Requested Document</option>
+                <option className="bg-gray-800 text-white" value="Document Submitted">Document Submitted</option>
+                <option className="bg-gray-800 text-white" value="Review Completed">Review Completed</option>
+                <option className="bg-gray-800 text-white" value="N/A">N/A</option>
+              </select>
+            </div>
             
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -447,10 +466,10 @@ export default function AccountEntry() {
               <select
                 value={currentEntry.clickerSettled}
                 onChange={(e) => handleInputChange('clickerSettled', e.target.value)}
-                className="w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                className="w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:bg-gray-800"
               >
-                <option value="No">No</option>
-                <option value="Yes">Yes</option>
+                <option className="bg-gray-800 text-white" value="No">No</option>
+                <option className="bg-gray-800 text-white" value="Yes">Yes</option>
               </select>
             </div>
             
@@ -474,10 +493,10 @@ export default function AccountEntry() {
               <select
                 value={currentEntry.accHolderSettled}
                 onChange={(e) => handleInputChange('accHolderSettled', e.target.value)}
-                className="w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                className="w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:bg-gray-800"
               >
-                <option value="No">No</option>
-                <option value="Yes">Yes</option>
+                <option className="bg-gray-800 text-white" value="No">No</option>
+                <option className="bg-gray-800 text-white" value="Yes">Yes</option>
               </select>
             </div>
             
@@ -501,10 +520,10 @@ export default function AccountEntry() {
               <select
                 value={currentEntry.companySettled}
                 onChange={(e) => handleInputChange('companySettled', e.target.value)}
-                className="w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                className="w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:bg-gray-800"
               >
-                <option value="No">No</option>
-                <option value="Yes">Yes</option>
+                <option className="bg-gray-800 text-white" value="No">No</option>
+                <option className="bg-gray-800 text-white" value="Yes">Yes</option>
               </select>
             </div>
             
@@ -647,6 +666,20 @@ export default function AccountEntry() {
                           onChange={(e) => handleEditInputChange('withdrawal', e.target.value)}
                           className="w-full px-3 py-2 bg-white/5 border border-purple-500/20 rounded text-white text-sm"
                         />
+                      </div>
+                      <div>
+                        <label className="block text-sm text-gray-400 mb-1">Compliance Review</label>
+                        <select
+                          value={editingEntry.complianceReview}
+                          onChange={(e) => handleEditInputChange('complianceReview', e.target.value)}
+                          className="w-full px-3 py-2 bg-white/5 border border-purple-500/20 rounded text-white text-sm focus:bg-gray-800"
+                          required
+                        >
+                          <option className="bg-gray-800 text-white" value="Requested Document">Requested Document</option>
+                          <option className="bg-gray-800 text-white" value="Document Submitted">Document Submitted</option>
+                          <option className="bg-gray-800 text-white" value="Review Completed">Review Completed</option>
+                          <option className="bg-gray-800 text-white" value="N/A">N/A</option>
+                        </select>
                       </div>
                       <div>
                         <label className="block text-sm text-gray-400 mb-1">Profit/Loss</label>
