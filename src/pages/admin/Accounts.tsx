@@ -43,8 +43,8 @@ export default function Accounts() {
     deal: '',
     ip: '',
     name: '',
-    sharePercentage: 0,
-    depositAmount: 0,
+    sharePercentage: '',
+    depositAmount: '',
     agentId: '',
     status: 'active' as 'active' | 'inactive'
   });
