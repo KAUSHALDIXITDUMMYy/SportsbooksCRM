@@ -149,9 +149,7 @@ export default function Login() {
           </form>
 
           <div className="mt-8 pt-6 border-t border-purple-500/20">
-            <p className="text-sm text-gray-400 text-center">
-              Demo Admin: kaushal.s.dixit5@gmail.com / 11111111
-            </p>
+            
           </div>
         </div>
       </div>

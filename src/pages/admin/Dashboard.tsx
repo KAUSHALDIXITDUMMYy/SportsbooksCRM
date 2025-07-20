@@ -311,7 +311,7 @@ export default function Dashboard() {
           <h1 className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">
             Admin Dashboard
           </h1>
-          <p className="text-gray-400 mt-1">Monitor your vjack.co platform performance</p>
+          <p className="text-gray-400 mt-1">Monitor your business platform performance</p>
         </div>
 
         <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-4 sm:space-y-0 sm:space-x-4">
