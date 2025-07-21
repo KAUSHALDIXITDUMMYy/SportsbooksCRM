@@ -333,7 +333,7 @@ export default function Accounts() {
             className="appearance-none w-full pl-10 pr-8 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400 bg-no-repeat bg-[length:20px_20px] bg-[position:right_8px_center]"
             style={{ backgroundImage: dropdownArrowSvg }}
           >
-            <option value="all" className="bg-gray-800 text-white">All Agents</option>
+            <option value="all" className="bg-gray-800 text-white">All Account Holder</option>
             {agents.map((agent) => (
               <option 
                 key={agent.id} 
