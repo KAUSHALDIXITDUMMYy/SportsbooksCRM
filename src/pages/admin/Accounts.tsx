@@ -737,7 +737,7 @@ export default function Accounts() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Agent
+                  Account holder
                 </label>
                 <select
                   value={newAccount.agentId}
@@ -748,7 +748,7 @@ export default function Accounts() {
                   style={{ backgroundImage: dropdownArrowSvg }}
                   required
                 >
-                  <option value="" className="bg-gray-800 text-white">Select an agent</option>
+                  <option value="" className="bg-gray-800 text-white">Select Account Holder</option>
                   {agents.map((agent) => (
                     <option key={agent.id} value={agent.id} className="bg-gray-800 text-white hover:bg-cyan-500">
                       {agent.name} ({agent.accountCount})
