@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs, query, where, orderBy } from 'firebase/firestore';
+import { collection, getDocs, query, where, orderBy, doc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
-import { Users, CreditCard, UserPlus, TrendingUp, Calendar, Filter, BarChart3, Eye, Search } from 'lucide-react';
+import { Users, CreditCard, UserPlus, TrendingUp, Calendar, Filter, BarChart3, Eye, Search, Settings } from 'lucide-react';
 import { format, subDays, startOfDay, endOfDay, parseISO } from 'date-fns';
-
 interface DashboardStats {
   totalAgents: number;
   totalAccounts: number;
@@ -14,6 +13,8 @@ interface DashboardStats {
   inactiveAccounts: number;
   pphAccounts: number;
   legalAccounts: number;
+    taxRate: number; // Added tax rate
+
 }
 
 interface AgentStats {
@@ -56,7 +57,9 @@ export default function Dashboard() {
     activeAccounts: 0,
     inactiveAccounts: 0,
     pphAccounts: 0,
-    legalAccounts: 0
+    legalAccounts: 0,
+    taxRate: 10 // Default tax rate
+
   });
   const [agentStats, setAgentStats] = useState<AgentStats[]>([]);
   const [playerStats, setPlayerStats] = useState<PlayerStats[]>([]);
@@ -70,10 +73,37 @@ export default function Dashboard() {
   const [overviewFilter, setOverviewFilter] = useState<'total' | 'active' | 'inactive'>('total');
   const [loading, setLoading] = useState(true);
 
+ const [showTaxModal, setShowTaxModal] = useState(false);
+  const [newTaxRate, setNewTaxRate] = useState(10);
+
   useEffect(() => {
     fetchStats();
+    fetchTaxRate();
   }, [dateFilter, customDateRange]);
+const fetchTaxRate = async () => {
+    try {
+      const taxDoc = await getDoc(doc(db, 'settings', 'taxRate'));
+      if (taxDoc.exists()) {
+        setStats(prev => ({ ...prev, taxRate: taxDoc.data().value }));
+        setNewTaxRate(taxDoc.data().value);
+      }
+    } catch (error) {
+      console.error('Error fetching tax rate:', error);
+    }
+  };
 
+  const updateTaxRate = async () => {
+  try {
+    await setDoc(doc(db, 'settings', 'taxRate'), {
+      value: newTaxRate,
+      updatedAt: new Date()
+    }, { merge: true }); // <-- merge ensures it doesn't overwrite existing fields
+    setStats(prev => ({ ...prev, taxRate: newTaxRate }));
+    setShowTaxModal(false);
+  } catch (error) {
+    console.error('Error updating tax rate:', error);
+  }
+};
   const fetchStats = async () => {
     setLoading(true);
     try {
@@ -199,7 +229,7 @@ export default function Dashboard() {
         })
       );
 
-      setStats({
+      setStats(prev => ({
         totalAgents,
         totalAccounts,
         totalPlayers,
@@ -208,8 +238,9 @@ export default function Dashboard() {
         activeAccounts,
         inactiveAccounts,
         pphAccounts,
-        legalAccounts
-      });
+        legalAccounts,
+        taxRate: prev.taxRate // preserve the current taxRate
+      }));
       setAgentStats(agentStatsData);
       setPlayerStats(playerStatsData);
       setAccountStats(accountStatsData);
@@ -315,6 +346,13 @@ export default function Dashboard() {
         </div>
 
         <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-4 sm:space-y-0 sm:space-x-4">
+          <button
+            onClick={() => setShowTaxModal(true)}
+            className="flex items-center space-x-2 bg-white/5 hover:bg-white/10 border border-purple-500/20 px-3 py-2 rounded-lg transition-colors"
+          >
+            <Settings className="w-5 h-5 text-gray-400" />
+            <span className="text-sm">Tax Rate: {stats.taxRate}%</span>
+          </button>
           <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-4 sm:space-y-0 sm:space-x-4">
             <div className="flex items-center space-x-2">
               <Filter className="w-5 h-5 text-gray-400" />
@@ -361,7 +399,43 @@ export default function Dashboard() {
           )}
         </div>
       </div>
-
+{showTaxModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-black/80 backdrop-blur-lg rounded-xl p-6 border border-purple-500/20 w-full max-w-md">
+            <h2 className="text-xl font-bold text-white mb-4">Update Tax Rate</h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Tax Rate (%)
+                </label>
+                <input
+                  type="number"
+                  value={newTaxRate}
+                  onChange={(e) => setNewTaxRate(Number(e.target.value))}
+                  min="0"
+                  max="100"
+                  step="0.1"
+                  className="w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                />
+              </div>
+              <div className="flex justify-end space-x-4">
+                <button
+                  onClick={() => setShowTaxModal(false)}
+                  className="px-6 py-3 text-gray-400 hover:text-white transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={updateTaxRate}
+                  className="bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white font-medium py-3 px-6 rounded-lg transition-all duration-200"
+                >
+                  Save Tax Rate
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       {/* View Mode Selector */}
       <div className="flex flex-wrap gap-2">
         {[
@@ -541,7 +615,7 @@ export default function Dashboard() {
                         </p>
                       </div>
                       <div>
-                        <p className="text-sm text-gray-400">Commission Earned</p>
+                        <p className="text-sm text-gray-400">Commission Expense</p>
                         <p className="text-lg lg:text-xl font-bold text-yellow-400">
                           ${((agent.totalProfit * agent.commissionPercentage) / 100 + (agent.flatCommission || 0)).toLocaleString()}
                         </p>

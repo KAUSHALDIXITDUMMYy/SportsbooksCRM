@@ -58,8 +58,8 @@ export default function PlayerDashboard() {
           
           // Get agent name
           try {
-            const agentDoc = await getDoc(doc(db, 'agents', accountData.agentId));
-            const agentName = agentDoc.exists() ? agentDoc.data().name : 'Unknown Agent';
+           const agentDoc = await getDocs(query(collection(db, 'agents'), where('__name__', '==', accountData.agentId)));
+                     const agentName = agentDoc.docs[0]?.data().name || 'Unknown Agent';
             
             return {
               id: accountDoc.id,

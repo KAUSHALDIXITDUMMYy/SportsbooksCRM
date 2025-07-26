@@ -98,11 +98,28 @@ export default function Accounts() {
             assignedToPlayerName = playerDoc.docs[0]?.data().name || 'Unknown Player';
           }
           
+          // Check if account has any entries and is assigned to determine status
+          const entriesQuery = query(collection(db, 'entries'), where('accountId', '==', accountDoc.id));
+          const entriesSnapshot = await getDocs(entriesQuery);
+          
+          let status = accountData.status || 'unused';
+          // If account has no entries or no player assigned, mark as unused
+          if (entriesSnapshot.size === 0 || !accountData.assignedToPlayerUid) {
+            status = 'unused';
+          } else if (status === 'unused') {
+            // If account has entries and is assigned but marked as unused, update to active
+            status = 'active';
+            await updateDoc(doc(db, 'accounts', accountDoc.id), {
+              status: 'active',
+              updatedAt: new Date()
+            });
+          }
+          
           return {
             id: accountDoc.id,
             ...accountData,
             type: accountData.type || 'pph',
-            status: accountData.status || 'active',
+            status,
             agentName,
             assignedToPlayerName,
             createdAt: accountData.createdAt?.toDate() || new Date()
@@ -147,7 +164,7 @@ export default function Accounts() {
     const accountData: any = {
       type: newAccount.type,
       agentId: newAccount.agentId,
-      status: newAccount.status,
+      status: 'unused', // Always set new accounts as unused
       createdAt: new Date()
     };
 
@@ -537,11 +554,11 @@ export default function Accounts() {
                             {account.status.toUpperCase()}
                           </span>
                           <span className={`px-2 py-1 rounded-full text-xs ${
-                            account.type === 'pph' 
-                              ? 'bg-purple-500/20 text-purple-400' 
-                              : 'bg-orange-500/20 text-orange-400'
+                            account.assignedToPlayerName 
+                              ? 'bg-green-500/20 text-green-400'
+                              : 'bg-yellow-500/20 text-yellow-400'
                           }`}>
-                            {(account.type || 'pph').toUpperCase()}
+                            {account.assignedToPlayerName ? 'ASSIGNED' : 'UNASSIGNED'}
                           </span>
                         </div>
                         <p className="text-sm text-gray-400">Agent: {account.agentName}</p>
