@@ -20,6 +20,7 @@ interface Account {
   assignedToPlayerName?: string;
   status: 'active' | 'inactive';
   createdAt: Date;
+  referralPercentage?: number;  // Add this line
 }
 
 interface Agent {
@@ -46,7 +47,8 @@ export default function Accounts() {
     sharePercentage: '',
     depositAmount: '',
     agentId: '',
-    status: 'active' as 'active' | 'inactive'
+    status: 'active' as 'active' | 'inactive',
+    referralPercentage: '',  // Add this line
   });
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'active' | 'inactive' | 'pph' | 'legal'>('all');
@@ -148,7 +150,8 @@ export default function Accounts() {
       type: newAccount.type,
       agentId: newAccount.agentId,
       status: newAccount.status,
-      createdAt: new Date()
+      createdAt: new Date(),
+      referralPercentage: newAccount.referralPercentage ? Number(newAccount.referralPercentage) : undefined,
     };
 
     if (newAccount.type === 'pph') {
@@ -178,7 +181,8 @@ export default function Accounts() {
         sharePercentage: 0,
         depositAmount: 0,
         agentId: '',
-        status: 'active'
+        status: 'active',
+        referralPercentage: '',  // Add this line
       });
       setShowModal(false);
       fetchAccounts();
@@ -196,7 +200,8 @@ export default function Accounts() {
       type: editingAccount.type,
       agentId: editingAccount.agentId,
       status: editingAccount.status,
-      updatedAt: new Date()
+      updatedAt: new Date(),
+      referralPercentage: editingAccount.referralPercentage ? Number(editingAccount.referralPercentage) : undefined,
     };
 
     if (editingAccount.type === 'pph') {
@@ -572,11 +577,17 @@ export default function Accounts() {
                         {account.ip && (
                           <div className="text-gray-400">IP: {account.ip}</div>
                         )}
+                        {account.referralPercentage && (
+                          <div className="text-gray-400">Referral: {account.referralPercentage}%</div>
+                        )}
                       </>
                     ) : (
                       <>
                         <div className="text-gray-400">Share: {account.sharePercentage}%</div>
                         <div className="text-gray-400">Deposit: ${account.depositAmount?.toLocaleString()}</div>
+                        {account.referralPercentage && (
+                          <div className="text-gray-400">Referral: {account.referralPercentage}%</div>
+                        )}
                       </>
                     )}
                     <div className="text-gray-400">
@@ -684,6 +695,26 @@ export default function Accounts() {
                       placeholder="Enter IP address"
                     />
                   </div>
+                  {newAccount.type === 'pph' && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">
+                        Referral Percentage (Optional)
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          max="100"
+                          value={newAccount.referralPercentage}
+                          onChange={(e) => setNewAccount({ ...newAccount, referralPercentage: e.target.value })}
+                          className="w-full px-4 py-3 pr-8 bg-white/5 border border-purple-500/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                          placeholder="Enter referral percentage"
+                        />
+                        <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400">%</span>
+                      </div>
+                    </div>
+                  )}
                 </>
               ) : (
                 <>
@@ -732,6 +763,27 @@ export default function Accounts() {
                       placeholder="Enter deposit amount"
                     />
                   </div>
+
+                  {newAccount.type === 'legal' && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">
+                        Referral Percentage (Optional)
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          max="100"
+                          value={newAccount.referralPercentage}
+                          onChange={(e) => setNewAccount({ ...newAccount, referralPercentage: e.target.value })}
+                          className="w-full px-4 py-3 pr-8 bg-white/5 border border-purple-500/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                          placeholder="Enter referral percentage"
+                        />
+                        <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400">%</span>
+                      </div>
+                    </div>
+                  )}
                 </>
               )}
 

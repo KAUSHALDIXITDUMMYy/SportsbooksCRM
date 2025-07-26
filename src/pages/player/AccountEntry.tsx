@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { collection, addDoc, getDocs, query, where, doc, getDoc, updateDoc, deleteDoc, orderBy } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { useAuth } from '../../contexts/AuthContext';
+import { useSettings } from '../../contexts/SettingsContext';
 import { ArrowLeft, Save, Calendar, DollarSign, ToggleLeft, ToggleRight, Edit, Trash2, Plus } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -15,6 +16,7 @@ interface Account {
   agentName: string;
   status: 'active' | 'inactive';
   depositAmount?: number;
+  referralPercentage?: number;
 }
 
 interface Entry {
@@ -43,6 +45,7 @@ interface Entry {
 export default function AccountEntry() {
   const { id } = useParams<{ id: string }>();
   const { userData } = useAuth();
+  const { settings } = useSettings();
   const navigate = useNavigate();
   const [account, setAccount] = useState<Account | null>(null);
   const [entries, setEntries] = useState<Entry[]>([]);
@@ -77,29 +80,90 @@ export default function AccountEntry() {
     }
   }, [id, userData]);
 
+  // Calculate profit/loss first
   useEffect(() => {
     const profitLoss = 
       (currentEntry.endingBalance || 0) - 
       (currentEntry.startingBalance || 0) + 
       (currentEntry.withdrawal || 0) - 
       (currentEntry.refillAmount || 0);
-    if (profitLoss !== currentEntry.profitLoss) {
-      setCurrentEntry(prev => ({ ...prev, profitLoss }));
-    }
-  }, [currentEntry.startingBalance, currentEntry.endingBalance, currentEntry.withdrawal, currentEntry.refillAmount]);
+    
+    setCurrentEntry(prev => ({
+      ...prev,
+      profitLoss
+    }));
+  }, [
+    currentEntry.startingBalance,
+    currentEntry.endingBalance,
+    currentEntry.withdrawal,
+    currentEntry.refillAmount
+  ]);
 
+  // Calculate other amounts whenever profit/loss changes
   useEffect(() => {
-    if (editingEntry) {
-      const profitLoss = 
-        (editingEntry.endingBalance || 0) - 
-        (editingEntry.startingBalance || 0) + 
-        (editingEntry.withdrawal || 0) - 
-        (editingEntry.refillAmount || 0);
-      if (profitLoss !== editingEntry.profitLoss) {
-        setEditingEntry(prev => prev ? ({ ...prev, profitLoss }) : null);
+    if (!currentEntry.profitLoss || !account || !userData) return;
+
+    const calculateOtherAmounts = async () => {
+      try {
+        // Calculate Clicker Amount
+        const clickerAmount = (currentEntry.profitLoss * (userData.percentage || 0)) / 100;
+        
+        // Get agent data for commission calculation
+        const agent = await getDoc(doc(db, 'agents', account.agentId));
+        const agentData = agent.data();
+        
+        // Calculate Account Holder Amount
+        const accHolderAmount = agentData ? 
+          ((currentEntry.profitLoss * (agentData.commissionPercentage || 0)) / 100) + 
+          (agentData.flatCommission || 0) : 0;
+        
+        // Calculate Tax Amount
+        const taxAmount = (currentEntry.profitLoss * (settings?.taxPercentage || 0)) / 100;
+        
+        // Calculate Referral Amount only if referralPercentage exists
+        const referralAmount = account.referralPercentage ? 
+          (currentEntry.profitLoss * account.referralPercentage) / 100 : 0;
+        
+        // Calculate Company Amount
+        const companyAmount = currentEntry.profitLoss - clickerAmount - accHolderAmount - taxAmount - referralAmount;
+        
+        // Update all calculated amounts
+        setCurrentEntry(prev => ({
+          ...prev,
+          clickerAmount,
+          accHolderAmount,
+          companyAmount,
+          taxableAmount: taxAmount,
+          referralAmount
+        }));
+      } catch (error) {
+        console.error('Error calculating amounts:', error);
       }
-    }
-  }, [editingEntry?.startingBalance, editingEntry?.endingBalance, editingEntry?.withdrawal, editingEntry?.refillAmount]);
+    };
+
+    calculateOtherAmounts();
+  }, [currentEntry.profitLoss, account, userData, settings?.taxPercentage]);
+
+  // Add similar useEffect for editing mode
+  useEffect(() => {
+    if (!editingEntry) return;
+    
+    const profitLoss = 
+      (editingEntry.endingBalance || 0) - 
+      (editingEntry.startingBalance || 0) + 
+      (editingEntry.withdrawal || 0) - 
+      (editingEntry.refillAmount || 0);
+    
+    setEditingEntry(prev => prev ? ({
+      ...prev,
+      profitLoss
+    }) : null);
+  }, [
+    editingEntry?.startingBalance,
+    editingEntry?.endingBalance,
+    editingEntry?.withdrawal,
+    editingEntry?.refillAmount
+  ]);
 
   const fetchAccountData = async () => {
     try {
@@ -284,6 +348,29 @@ export default function AccountEntry() {
       </div>
     );
   }
+
+  // Update the input fields to be disabled for auto-calculated amounts
+  const renderAmountInput = (
+    label: string,
+    value: number,
+    isAuto: boolean = false,
+    isPositive: boolean = true
+  ) => (
+    <div>
+      <label className="block text-sm font-medium text-gray-300 mb-2">
+        {label} {isAuto && '(Auto-calculated)'}
+      </label>
+      <input
+        type="number"
+        step="0.01"
+        value={value === 0 ? '' : value}
+        className={`w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none ${
+          isAuto ? 'cursor-not-allowed' : 'focus:ring-2 focus:ring-cyan-400'
+        } ${isPositive ? 'text-green-400' : 'text-red-400'}`}
+        disabled={isAuto}
+      />
+    </div>
+  );
 
   return (
     <div className="space-y-8">
@@ -473,98 +560,11 @@ export default function AccountEntry() {
               </select>
             </div>
             
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Clicker Amount
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                value={currentEntry.clickerAmount === 0 ? '' : currentEntry.clickerAmount}
-                onChange={(e) => handleInputChange('clickerAmount', e.target.value)}
-                className="w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
-              />
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Account Holder Settled
-              </label>
-              <select
-                value={currentEntry.accHolderSettled}
-                onChange={(e) => handleInputChange('accHolderSettled', e.target.value)}
-                className="w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:bg-gray-800"
-              >
-                <option className="bg-gray-800 text-white" value="No">No</option>
-                <option className="bg-gray-800 text-white" value="Yes">Yes</option>
-              </select>
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Account Holder Amount
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                value={currentEntry.accHolderAmount === 0 ? '' : currentEntry.accHolderAmount}
-                onChange={(e) => handleInputChange('accHolderAmount', e.target.value)}
-                className="w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
-              />
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Company Settled
-              </label>
-              <select
-                value={currentEntry.companySettled}
-                onChange={(e) => handleInputChange('companySettled', e.target.value)}
-                className="w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:bg-gray-800"
-              >
-                <option className="bg-gray-800 text-white" value="No">No</option>
-                <option className="bg-gray-800 text-white" value="Yes">Yes</option>
-              </select>
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Company Amount
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                value={currentEntry.companyAmount === 0 ? '' : currentEntry.companyAmount}
-                onChange={(e) => handleInputChange('companyAmount', e.target.value)}
-                className="w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
-              />
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Taxable Amount
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                value={currentEntry.taxableAmount === 0 ? '' : currentEntry.taxableAmount}
-                onChange={(e) => handleInputChange('taxableAmount', e.target.value)}
-                className="w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
-              />
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Referral Amount
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                value={currentEntry.referralAmount === 0 ? '' : currentEntry.referralAmount}
-                onChange={(e) => handleInputChange('referralAmount', e.target.value)}
-                className="w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
-              />
-            </div>
+            {renderAmountInput('Clicker Amount', currentEntry.clickerAmount, true)}
+            {renderAmountInput('Account Holder Amount', currentEntry.accHolderAmount, true)}
+            {renderAmountInput('Company Amount', currentEntry.companyAmount, true)}
+            {renderAmountInput('Taxable Amount', currentEntry.taxableAmount, true)}
+            {account?.referralPercentage && renderAmountInput('Referral Amount', currentEntry.referralAmount, true)}
           </div>
           
           <div>
