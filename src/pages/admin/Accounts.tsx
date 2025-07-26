@@ -18,7 +18,7 @@ interface Account {
   agentName: string;
   assignedToPlayerUid?: string;
   assignedToPlayerName?: string;
-  status: 'active' | 'inactive';
+  status: 'active' | 'inactive' | 'unused';
   createdAt: Date;
   referralPercentage?: number;  // Add this line
 }
@@ -47,11 +47,10 @@ export default function Accounts() {
     sharePercentage: '',
     depositAmount: '',
     agentId: '',
-    status: 'active' as 'active' | 'inactive',
-    referralPercentage: '',  // Add this line
+    status: 'active' as 'active' | 'inactive' | 'unused'
   });
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<'all' | 'active' | 'inactive' | 'pph' | 'legal'>('all');
+  const [filter, setFilter] = useState<'all' | 'active' | 'inactive' | 'unused' | 'pph' | 'legal'>('all');
   const [agentFilter, setAgentFilter] = useState<string>('all');
 
   useEffect(() => {
@@ -70,7 +69,7 @@ export default function Accounts() {
     }
     
     if (filter !== 'all') {
-      if (filter === 'active' || filter === 'inactive') {
+      if (filter === 'active' || filter === 'inactive' || filter === 'unused') {
         filtered = filtered.filter(account => account.status === filter);
       } else if (filter === 'pph' || filter === 'legal') {
         filtered = filtered.filter(account => account.type === filter);
@@ -100,11 +99,28 @@ export default function Accounts() {
             assignedToPlayerName = playerDoc.docs[0]?.data().name || 'Unknown Player';
           }
           
+          // Check if account has any entries and is assigned to determine status
+          const entriesQuery = query(collection(db, 'entries'), where('accountId', '==', accountDoc.id));
+          const entriesSnapshot = await getDocs(entriesQuery);
+          
+          let status = accountData.status || 'unused';
+          // If account has no entries or no player assigned, mark as unused
+          if (entriesSnapshot.size === 0 || !accountData.assignedToPlayerUid) {
+            status = 'unused';
+          } else if (status === 'unused') {
+            // If account has entries and is assigned but marked as unused, update to active
+            status = 'active';
+            await updateDoc(doc(db, 'accounts', accountDoc.id), {
+              status: 'active',
+              updatedAt: new Date()
+            });
+          }
+          
           return {
             id: accountDoc.id,
             ...accountData,
             type: accountData.type || 'pph',
-            status: accountData.status || 'active',
+            status,
             agentName,
             assignedToPlayerName,
             createdAt: accountData.createdAt?.toDate() || new Date()
@@ -149,9 +165,8 @@ export default function Accounts() {
     const accountData: any = {
       type: newAccount.type,
       agentId: newAccount.agentId,
-      status: newAccount.status,
-      createdAt: new Date(),
-      referralPercentage: newAccount.referralPercentage ? Number(newAccount.referralPercentage) : undefined,
+      status: 'unused', // Always set new accounts as unused
+      createdAt: new Date()
     };
 
     if (newAccount.type === 'pph') {
@@ -164,8 +179,8 @@ export default function Accounts() {
     } else {
       if (!newAccount.name) return;
       accountData.name = newAccount.name.trim();
-      accountData.sharePercentage = newAccount.sharePercentage;
-      accountData.depositAmount = newAccount.depositAmount;
+      accountData.sharePercentage = parseFloat(newAccount.sharePercentage) || 0;
+      accountData.depositAmount = parseFloat(newAccount.depositAmount) || 0;
     }
 
     try {
@@ -178,8 +193,8 @@ export default function Accounts() {
         deal: '',
         ip: '',
         name: '',
-        sharePercentage: 0,
-        depositAmount: 0,
+        sharePercentage: '',
+        depositAmount: '',
         agentId: '',
         status: 'active',
         referralPercentage: '',  // Add this line
@@ -241,6 +256,7 @@ export default function Accounts() {
     total: accounts.length,
     active: accounts.filter(a => a.status === 'active').length,
     inactive: accounts.filter(a => a.status === 'inactive').length,
+    unused: accounts.filter(a => a.status === 'unused').length,
     pph: accounts.filter(a => a.type === 'pph').length,
     legal: accounts.filter(a => a.type === 'legal').length
   };
@@ -266,7 +282,7 @@ export default function Accounts() {
         </button>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
         <div className="bg-gradient-to-r from-blue-500/10 to-cyan-500/10 backdrop-blur-sm rounded-xl p-4 border border-blue-500/20">
           <div className="flex items-center justify-between">
             <div>
@@ -312,6 +328,15 @@ export default function Accounts() {
             <div className="w-6 h-6 bg-gradient-to-r from-orange-400 to-yellow-400 rounded"></div>
           </div>
         </div>
+        <div className="bg-gradient-to-r from-yellow-500/10 to-amber-500/10 backdrop-blur-sm rounded-xl p-4 border border-yellow-500/20">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-400">Unused</p>
+              <p className="text-2xl font-bold text-yellow-400">{accountStats.unused}</p>
+            </div>
+            <div className="w-3 h-3 bg-yellow-400 rounded-full"></div>
+          </div>
+        </div>
       </div>
 
       <div className="flex flex-col md:flex-row gap-4">
@@ -353,7 +378,7 @@ export default function Accounts() {
       </div>
 
       <div className="flex space-x-4">
-        {['all', 'active', 'inactive', 'pph', 'legal'].map((filterOption) => (
+        {['all', 'active', 'inactive', 'unused', 'pph', 'legal'].map((filterOption) => (
           <button
             key={filterOption}
             onClick={() => setFilter(filterOption as any)}
@@ -405,13 +430,14 @@ export default function Accounts() {
                     <select
                       value={editingAccount.status}
                       onChange={(e: React.ChangeEvent<HTMLSelectElement>) => 
-                        setEditingAccount({ ...editingAccount, status: e.target.value as 'active' | 'inactive' })
+                        setEditingAccount({ ...editingAccount, status: e.target.value as 'active' | 'inactive' | 'unused' })
                       }
                       className="appearance-none px-3 py-1 bg-white/5 border border-purple-500/20 rounded text-white text-sm pr-8 bg-no-repeat bg-[length:20px_20px] bg-[position:right_2px_center]"
                       style={{ backgroundImage: dropdownArrowSvg }}
                     >
                       <option value="active" className="bg-gray-800 text-white">Active</option>
                       <option value="inactive" className="bg-gray-800 text-white">Inactive</option>
+                      <option value="unused" className="bg-gray-800 text-white">Unused</option>
                     </select>
                   </div>
 
@@ -524,16 +550,18 @@ export default function Accounts() {
                           <span className={`px-2 py-1 rounded-full text-xs ${
                             account.status === 'active' 
                               ? 'bg-green-500/20 text-green-400' 
-                              : 'bg-red-500/20 text-red-400'
+                              : account.status === 'inactive'
+                              ? 'bg-red-500/20 text-red-400'
+                              : 'bg-yellow-500/20 text-yellow-400'
                           }`}>
-                            {account.status}
+                            {account.status.toUpperCase()}
                           </span>
                           <span className={`px-2 py-1 rounded-full text-xs ${
-                            account.type === 'pph' 
-                              ? 'bg-purple-500/20 text-purple-400' 
-                              : 'bg-orange-500/20 text-orange-400'
+                            account.assignedToPlayerName 
+                              ? 'bg-green-500/20 text-green-400'
+                              : 'bg-yellow-500/20 text-yellow-400'
                           }`}>
-                            {(account.type || 'pph').toUpperCase()}
+                            {account.assignedToPlayerName ? 'ASSIGNED' : 'UNASSIGNED'}
                           </span>
                         </div>
                         <p className="text-sm text-gray-400">Agent: {account.agentName}</p>
@@ -742,7 +770,7 @@ export default function Accounts() {
                         min="0"
                         max="100"
                         value={newAccount.sharePercentage}
-                        onChange={(e) => setNewAccount({ ...newAccount, sharePercentage: parseFloat(e.target.value) || 0 })}
+                        onChange={(e) => setNewAccount({ ...newAccount, sharePercentage: e.target.value })}
                         className="w-full px-4 py-3 pr-8 bg-white/5 border border-purple-500/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-400"
                         placeholder="Enter share percentage"
                       />
@@ -758,7 +786,7 @@ export default function Accounts() {
                       step="0.01"
                       min="0"
                       value={newAccount.depositAmount}
-                      onChange={(e) => setNewAccount({ ...newAccount, depositAmount: parseFloat(e.target.value) || 0 })}
+                      onChange={(e) => setNewAccount({ ...newAccount, depositAmount: e.target.value })}
                       className="w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-400"
                       placeholder="Enter deposit amount"
                     />
@@ -816,13 +844,14 @@ export default function Accounts() {
                 <select
                   value={newAccount.status}
                   onChange={(e: React.ChangeEvent<HTMLSelectElement>) => 
-                    setNewAccount({ ...newAccount, status: e.target.value as 'active' | 'inactive' })
+                    setNewAccount({ ...newAccount, status: e.target.value as 'active' | 'inactive' | 'unused' })
                   }
                   className="appearance-none w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400 pr-10 bg-no-repeat bg-[length:20px_20px] bg-[position:right_10px_center]"
                   style={{ backgroundImage: dropdownArrowSvg }}
                 >
                   <option value="active" className="bg-gray-800 text-white">Active</option>
                   <option value="inactive" className="bg-gray-800 text-white">Inactive</option>
+                  <option value="unused" className="bg-gray-800 text-white">Unused</option>
                 </select>
               </div>
 

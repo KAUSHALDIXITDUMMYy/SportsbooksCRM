@@ -13,8 +13,9 @@ interface Account {
   username?: string;
   name?: string;
   websiteURL?: string;
+  agentId: string;
   agentName: string;
-  status: 'active' | 'inactive';
+  status: 'active' | 'inactive' | 'unused';
   depositAmount?: number;
   referralPercentage?: number;
 }
@@ -73,40 +74,45 @@ export default function AccountEntry() {
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [taxRate, setTaxRate] = useState(10); // Default tax rate
 
-  useEffect(() => {
+ useEffect(() => {
     if (id && userData?.uid) {
       fetchAccountData();
+      fetchTaxRate();
     }
   }, [id, userData]);
 
-  // Calculate profit/loss first
-  useEffect(() => {
-    const profitLoss = 
-      (currentEntry.endingBalance || 0) - 
-      (currentEntry.startingBalance || 0) + 
-      (currentEntry.withdrawal || 0) - 
-      (currentEntry.refillAmount || 0);
-    
-    setCurrentEntry(prev => ({
-      ...prev,
-      profitLoss
-    }));
-  }, [
-    currentEntry.startingBalance,
-    currentEntry.endingBalance,
-    currentEntry.withdrawal,
-    currentEntry.refillAmount
-  ]);
+  const fetchTaxRate = async () => {
+    try {
+      const taxDoc = await getDoc(doc(db, 'settings', 'taxRate'));
+      if (taxDoc.exists()) {
+        setTaxRate(taxDoc.data().value);
+      }
+    } catch (error) {
+      console.error('Error fetching tax rate:', error);
+    }
+  };
+  // Calculate all amounts whenever relevant fields change
+ useEffect(() => {
+    const calculateAmounts = async () => {
+      const profitLoss = 
+        (currentEntry.endingBalance || 0) - 
+        (currentEntry.startingBalance || 0) + 
+        (currentEntry.withdrawal || 0) - 
+        (currentEntry.refillAmount || 0);
+      
+      if (!account || !userData) {
+        setCurrentEntry(prev => ({
+          ...prev,
+          profitLoss
+        }));
+        return;
+      }
 
-  // Calculate other amounts whenever profit/loss changes
-  useEffect(() => {
-    if (!currentEntry.profitLoss || !account || !userData) return;
-
-    const calculateOtherAmounts = async () => {
       try {
         // Calculate Clicker Amount
-        const clickerAmount = (currentEntry.profitLoss * (userData.percentage || 0)) / 100;
+        const clickerAmount = (profitLoss * (userData.percentage || 0)) / 100;
         
         // Get agent data for commission calculation
         const agent = await getDoc(doc(db, 'agents', account.agentId));
@@ -114,22 +120,23 @@ export default function AccountEntry() {
         
         // Calculate Account Holder Amount
         const accHolderAmount = agentData ? 
-          ((currentEntry.profitLoss * (agentData.commissionPercentage || 0)) / 100) + 
+          ((profitLoss * (agentData.commissionPercentage || 0)) / 100) + 
           (agentData.flatCommission || 0) : 0;
         
-        // Calculate Tax Amount
-        const taxAmount = (currentEntry.profitLoss * (settings?.taxPercentage || 0)) / 100;
+        // Calculate Tax Amount using the fetched tax rate
+        const taxAmount = (profitLoss * taxRate) / 100;
         
         // Calculate Referral Amount only if referralPercentage exists
         const referralAmount = account.referralPercentage ? 
-          (currentEntry.profitLoss * account.referralPercentage) / 100 : 0;
+          (profitLoss * account.referralPercentage) / 100 : 0;
         
         // Calculate Company Amount
-        const companyAmount = currentEntry.profitLoss - clickerAmount - accHolderAmount - taxAmount - referralAmount;
+        const companyAmount = profitLoss - clickerAmount - accHolderAmount - taxAmount - referralAmount;
         
         // Update all calculated amounts
         setCurrentEntry(prev => ({
           ...prev,
+          profitLoss,
           clickerAmount,
           accHolderAmount,
           companyAmount,
@@ -141,28 +148,135 @@ export default function AccountEntry() {
       }
     };
 
-    calculateOtherAmounts();
-  }, [currentEntry.profitLoss, account, userData, settings?.taxPercentage]);
+    calculateAmounts();
+  }, [
+    currentEntry.startingBalance,
+    currentEntry.endingBalance,
+    currentEntry.withdrawal,
+    currentEntry.refillAmount,
+    account,
+    userData,
+    taxRate // Add taxRate to dependencies
+  ]);
 
-  // Add similar useEffect for editing mode
+  // Similar calculation for editing mode
   useEffect(() => {
-    if (!editingEntry) return;
+    if (!editingEntry || !account || !userData) return;
     
-    const profitLoss = 
-      (editingEntry.endingBalance || 0) - 
-      (editingEntry.startingBalance || 0) + 
-      (editingEntry.withdrawal || 0) - 
-      (editingEntry.refillAmount || 0);
-    
-    setEditingEntry(prev => prev ? ({
-      ...prev,
-      profitLoss
-    }) : null);
+    const calculateEditingAmounts = async () => {
+      const profitLoss = 
+        (editingEntry.endingBalance || 0) - 
+        (editingEntry.startingBalance || 0) + 
+        (editingEntry.withdrawal || 0) - 
+        (editingEntry.refillAmount || 0);
+      
+      try {
+        // Calculate Clicker Amount
+        const clickerAmount = (profitLoss * (userData.percentage || 0)) / 100;
+        
+        // Get agent data for commission calculation
+        const agent = await getDoc(doc(db, 'agents', account.agentId));
+        const agentData = agent.data();
+        
+        // Calculate Account Holder Amount
+        const accHolderAmount = agentData ? 
+          ((profitLoss * (agentData.commissionPercentage || 0)) / 100) + 
+          (agentData.flatCommission || 0) : 0;
+        
+        // Calculate Tax Amount using the fetched tax rate
+        const taxAmount = (profitLoss * taxRate) / 100;
+        
+        // Calculate Referral Amount only if referralPercentage exists
+        const referralAmount = account.referralPercentage ? 
+          (profitLoss * account.referralPercentage) / 100 : 0;
+        
+        // Calculate Company Amount
+        const companyAmount = profitLoss - clickerAmount - accHolderAmount - taxAmount - referralAmount;
+        
+        // Update all calculated amounts
+        setEditingEntry(prev => prev ? ({
+          ...prev,
+          profitLoss,
+          clickerAmount,
+          accHolderAmount,
+          companyAmount,
+          taxableAmount: taxAmount,
+          referralAmount
+        }) : null);
+      } catch (error) {
+        console.error('Error calculating amounts:', error);
+      }
+    };
+
+    calculateEditingAmounts();
   }, [
     editingEntry?.startingBalance,
     editingEntry?.endingBalance,
     editingEntry?.withdrawal,
-    editingEntry?.refillAmount
+    editingEntry?.refillAmount,
+    account,
+    userData,
+    taxRate // Add taxRate to dependencies
+  ]);
+
+  // Similar calculation for editing mode
+  useEffect(() => {
+    if (!editingEntry || !account || !userData) return;
+    
+    const calculateEditingAmounts = async () => {
+      const profitLoss = 
+        (editingEntry.endingBalance || 0) - 
+        (editingEntry.startingBalance || 0) + 
+        (editingEntry.withdrawal || 0) - 
+        (editingEntry.refillAmount || 0);
+      
+      try {
+        // Calculate Clicker Amount
+        const clickerAmount = (profitLoss * (userData.percentage || 0)) / 100;
+        
+        // Get agent data for commission calculation
+        const agent = await getDoc(doc(db, 'agents', account.agentId));
+        const agentData = agent.data();
+        
+        // Calculate Account Holder Amount
+        const accHolderAmount = agentData ? 
+          ((profitLoss * (agentData.commissionPercentage || 0)) / 100) + 
+          (agentData.flatCommission || 0) : 0;
+        
+        // Fixed tax percentage (removed useSettings)
+        const taxPercentage = 10; // Default 10% tax
+        const taxAmount = (profitLoss * taxPercentage) / 100;
+        
+        // Calculate Referral Amount only if referralPercentage exists
+        const referralAmount = account.referralPercentage ? 
+          (profitLoss * account.referralPercentage) / 100 : 0;
+        
+        // Calculate Company Amount
+        const companyAmount = profitLoss - clickerAmount - accHolderAmount - taxAmount - referralAmount;
+        
+        // Update all calculated amounts
+        setEditingEntry(prev => prev ? ({
+          ...prev,
+          profitLoss,
+          clickerAmount,
+          accHolderAmount,
+          companyAmount,
+          taxableAmount: taxAmount,
+          referralAmount
+        }) : null);
+      } catch (error) {
+        console.error('Error calculating amounts:', error);
+      }
+    };
+
+    calculateEditingAmounts();
+  }, [
+    editingEntry?.startingBalance,
+    editingEntry?.endingBalance,
+    editingEntry?.withdrawal,
+    editingEntry?.refillAmount,
+    account,
+    userData
   ]);
 
   const fetchAccountData = async () => {
@@ -176,24 +290,34 @@ export default function AccountEntry() {
         const agentDoc = await getDoc(doc(db, 'agents', accountData.agentId));
         const agentName = agentDoc.exists() ? agentDoc.data().name : 'Unknown Agent';
         
+        // Check if account has any entries to determine status
+        let status = accountData.status || 'unused';
+        const entriesQuery = query(
+          collection(db, 'entries'),
+          where('accountId', '==', id),
+          where('playerUid', '==', userData?.uid)
+        );
+        const entriesSnapshot = await getDocs(entriesQuery);
+        
+        if (entriesSnapshot.size > 0) {
+          status = 'active'; // Account has entries, set to active
+        } else if (status !== 'inactive') {
+          status = 'unused'; // No entries and not manually set to inactive
+        }
+        
         setAccount({
           id: accountDoc.id,
           type: accountData.type || 'pph',
           username: accountData.username,
           name: accountData.name,
           websiteURL: accountData.websiteURL,
+          agentId: accountData.agentId,
           agentName,
-          status: accountData.status || 'active',
-          depositAmount: accountData.depositAmount
+          status,
+          depositAmount: accountData.depositAmount,
+          referralPercentage: accountData.referralPercentage
         });
         
-        const entriesQuery = query(
-          collection(db, 'entries'),
-          where('accountId', '==', id),
-          where('playerUid', '==', userData?.uid),
-          orderBy('date', 'desc')
-        );
-        const entriesSnapshot = await getDocs(entriesQuery);
         const entriesData = entriesSnapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data()
@@ -207,7 +331,7 @@ export default function AccountEntry() {
         } else {
           setCurrentEntry(prev => ({
             ...prev,
-            accountStatus: accountData.status || 'active',
+            accountStatus: status === 'unused' ? 'active' : status,
             startingBalance: accountData.type === 'legal' ? (accountData.depositAmount || 0) : 0
           }));
         }
@@ -266,6 +390,14 @@ export default function AccountEntry() {
           ...entryToSave,
           createdAt: new Date()
         });
+        
+        // If account was unused, update to active
+        if (account?.status === 'unused') {
+          await updateDoc(doc(db, 'accounts', id!), {
+            status: 'active',
+            updatedAt: new Date()
+          });
+        }
       }
       
       if (account && currentEntry.accountStatus !== account.status) {
@@ -275,7 +407,7 @@ export default function AccountEntry() {
         });
       }
       
-      navigate('/player/dashboard');
+      fetchAccountData(); // Refresh data to reflect changes
     } catch (error) {
       console.error('Error saving entry:', error);
     } finally {
@@ -320,6 +452,25 @@ export default function AccountEntry() {
     if (window.confirm('Are you sure you want to delete this entry?')) {
       try {
         await deleteDoc(doc(db, 'entries', entryId));
+        
+        // Check if this was the last entry
+        const entriesQuery = query(
+          collection(db, 'entries'),
+          where('accountId', '==', id),
+          where('playerUid', '==', userData?.uid)
+        );
+        const entriesSnapshot = await getDocs(entriesQuery);
+        
+        if (entriesSnapshot.size === 0) {
+          // No entries left, set account status to 'unused' if not manually set to inactive
+          if (account?.status !== 'inactive') {
+            await updateDoc(doc(db, 'accounts', id!), {
+              status: 'unused',
+              updatedAt: new Date()
+            });
+          }
+        }
+        
         fetchAccountData();
       } catch (error) {
         console.error('Error deleting entry:', error);
@@ -349,11 +500,11 @@ export default function AccountEntry() {
     );
   }
 
-  // Update the input fields to be disabled for auto-calculated amounts
+  // Helper function to render auto-calculated amount fields
   const renderAmountInput = (
     label: string,
     value: number,
-    isAuto: boolean = false,
+    isAuto: boolean = true,
     isPositive: boolean = true
   ) => (
     <div>
@@ -368,6 +519,7 @@ export default function AccountEntry() {
           isAuto ? 'cursor-not-allowed' : 'focus:ring-2 focus:ring-cyan-400'
         } ${isPositive ? 'text-green-400' : 'text-red-400'}`}
         disabled={isAuto}
+        readOnly={isAuto}
       />
     </div>
   );
@@ -397,9 +549,11 @@ export default function AccountEntry() {
               <span className={`px-3 py-1 rounded-full text-sm ${
                 currentEntry.accountStatus === 'active' 
                   ? 'bg-green-500/20 text-green-400' 
-                  : 'bg-red-500/20 text-red-400'
+                  : currentEntry.accountStatus === 'inactive'
+                  ? 'bg-red-500/20 text-red-400'
+                  : 'bg-yellow-500/20 text-yellow-400'
               }`}>
-                {currentEntry.accountStatus}
+                {currentEntry.accountStatus.toUpperCase()}
               </span>
             </div>
             <p className="text-gray-400 mt-1">Agent: {account.agentName}</p>
@@ -531,20 +685,7 @@ export default function AccountEntry() {
               </select>
             </div>
             
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Profit/Loss (Auto-calculated)
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                value={currentEntry.profitLoss}
-                className={`w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none cursor-not-allowed ${
-                  currentEntry.profitLoss >= 0 ? 'text-green-400' : 'text-red-400'
-                }`}
-                disabled
-              />
-            </div>
+            {renderAmountInput('Profit/Loss', currentEntry.profitLoss, true, currentEntry.profitLoss >= 0)}
             
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -560,11 +701,11 @@ export default function AccountEntry() {
               </select>
             </div>
             
-            {renderAmountInput('Clicker Amount', currentEntry.clickerAmount, true)}
-            {renderAmountInput('Account Holder Amount', currentEntry.accHolderAmount, true)}
-            {renderAmountInput('Company Amount', currentEntry.companyAmount, true)}
-            {renderAmountInput('Taxable Amount', currentEntry.taxableAmount, true)}
-            {account?.referralPercentage && renderAmountInput('Referral Amount', currentEntry.referralAmount, true)}
+            {renderAmountInput('Clicker Amount', currentEntry.clickerAmount)}
+            {renderAmountInput('Account Holder Amount', currentEntry.accHolderAmount)}
+            {renderAmountInput('Company Amount', currentEntry.companyAmount, true, currentEntry.companyAmount >= 0)}
+            {renderAmountInput('Taxable Amount', currentEntry.taxableAmount, true, false)}
+            {account?.referralPercentage && renderAmountInput('Referral Amount', currentEntry.referralAmount)}
           </div>
           
           <div>
@@ -681,18 +822,12 @@ export default function AccountEntry() {
                           <option className="bg-gray-800 text-white" value="N/A">N/A</option>
                         </select>
                       </div>
-                      <div>
-                        <label className="block text-sm text-gray-400 mb-1">Profit/Loss</label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={editingEntry.profitLoss}
-                          className={`w-full px-3 py-2 bg-white/5 border border-purple-500/20 rounded text-sm cursor-not-allowed ${
-                            editingEntry.profitLoss >= 0 ? 'text-green-400' : 'text-red-400'
-                          }`}
-                          disabled
-                        />
-                      </div>
+                      {renderAmountInput('Profit/Loss', editingEntry.profitLoss, true, editingEntry.profitLoss >= 0)}
+                      {renderAmountInput('Clicker Amount', editingEntry.clickerAmount)}
+                      {renderAmountInput('Account Holder Amount', editingEntry.accHolderAmount)}
+                      {renderAmountInput('Company Amount', editingEntry.companyAmount, true, editingEntry.companyAmount >= 0)}
+                      {renderAmountInput('Taxable Amount', editingEntry.taxableAmount, true, false)}
+                      {account?.referralPercentage && renderAmountInput('Referral Amount', editingEntry.referralAmount)}
                     </div>
                     <div>
                       <label className="block text-sm text-gray-400 mb-1">Notes</label>
