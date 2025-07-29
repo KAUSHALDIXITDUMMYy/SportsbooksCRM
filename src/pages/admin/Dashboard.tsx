@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { collection, getDocs, query, where, orderBy, doc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
+import { useSettings } from '../../contexts/SettingsContext'; 
 import { Users, CreditCard, UserPlus, TrendingUp, Calendar, Filter, BarChart3, Eye, Search, Settings } from 'lucide-react';
 import { format, subDays, startOfDay, endOfDay, parseISO } from 'date-fns';
 interface DashboardStats {
