@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { collection, getDocs, query, where, orderBy, doc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
-import { useSettings } from '../../contexts/SettingsContext'; 
+import { useSettings } from '../../contexts/SettingsContext';
 import { Users, CreditCard, UserPlus, TrendingUp, Calendar, Filter, BarChart3, Eye, Search, Settings } from 'lucide-react';
 import { format, subDays, startOfDay, endOfDay, parseISO } from 'date-fns';
 interface DashboardStats {
@@ -14,7 +14,7 @@ interface DashboardStats {
   inactiveAccounts: number;
   pphAccounts: number;
   legalAccounts: number;
-    taxRate: number; // Added tax rate
+  taxRate: number; // Added tax rate
 
 }
 
@@ -75,19 +75,21 @@ export default function Dashboard() {
   const [overviewFilter, setOverviewFilter] = useState<'total' | 'active' | 'inactive'>('total');
   const [loading, setLoading] = useState(true);
 
- const [showTaxModal, setShowTaxModal] = useState(false);
+  const [showTaxModal, setShowTaxModal] = useState(false);
   const [newTaxRate, setNewTaxRate] = useState(10);
+  const [isUpdatingTax, setIsUpdatingTax] = useState(false);
 
   useEffect(() => {
     fetchStats();
     fetchTaxRate();
   }, [dateFilter, customDateRange]);
-const fetchTaxRate = async () => {
+  const fetchTaxRate = async () => {
     try {
       const taxDoc = await getDoc(doc(db, 'settings', 'taxRate'));
       if (taxDoc.exists()) {
-        setStats(prev => ({ ...prev, taxRate: taxDoc.data().value }));
-        setNewTaxRate(taxDoc.data().value);
+        const rate = taxDoc.data().value;
+        setStats(prev => ({ ...prev, taxRate: rate }));
+        setNewTaxRate(rate.toString());
       }
     } catch (error) {
       console.error('Error fetching tax rate:', error);
@@ -95,17 +97,38 @@ const fetchTaxRate = async () => {
   };
 
   const updateTaxRate = async () => {
-  try {
-    await setDoc(doc(db, 'settings', 'taxRate'), {
-      value: newTaxRate,
-      updatedAt: new Date()
-    }, { merge: true }); // <-- merge ensures it doesn't overwrite existing fields
-    setStats(prev => ({ ...prev, taxRate: newTaxRate }));
-    setShowTaxModal(false);
-  } catch (error) {
-    console.error('Error updating tax rate:', error);
-  }
-};
+    if (!newTaxRate || isNaN(Number(newTaxRate))) {
+      return;
+    }
+
+    const rate = Number(newTaxRate);
+    if (rate < 0 || rate > 100) {
+      return;
+    }
+
+    setIsUpdatingTax(true);
+    try {
+      await setDoc(doc(db, 'settings', 'taxRate'), {
+        value: rate,
+        updatedAt: new Date()
+      }, { merge: true });
+      
+      setStats(prev => ({ ...prev, taxRate: rate }));
+      setShowTaxModal(false);
+    } catch (error) {
+      console.error('Error updating tax rate:', error);
+    } finally {
+      setIsUpdatingTax(false);
+    }
+  };
+
+  const handleTaxRateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    // Allow empty value or numeric values between 0-100
+    if (value === '' || (/^\d*$/.test(value) && Number(value) >= 0 && Number(value) <= 100)) {
+      setNewTaxRate(value);
+    }
+  };
   const fetchStats = async () => {
     setLoading(true);
     try {
@@ -348,13 +371,13 @@ const fetchTaxRate = async () => {
         </div>
 
         <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-4 sm:space-y-0 sm:space-x-4">
-          <button
-            onClick={() => setShowTaxModal(true)}
-            className="flex items-center space-x-2 bg-white/5 hover:bg-white/10 border border-purple-500/20 px-3 py-2 rounded-lg transition-colors"
-          >
-            <Settings className="w-5 h-5 text-gray-400" />
-            <span className="text-sm">Tax Rate: {stats.taxRate}%</span>
-          </button>
+        <button
+  onClick={() => setShowTaxModal(true)}
+  className="flex items-center space-x-2 bg-white/5 hover:bg-white/10 border border-purple-500/20 px-3 py-2 rounded-lg transition-colors"
+>
+  <Settings className="w-5 h-5 text-gray-400" />
+  <span className="text-sm text-white">Tax Rate: <span className="text-gray-400">{stats.taxRate}%</span></span>
+</button>
           <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-4 sm:space-y-0 sm:space-x-4">
             <div className="flex items-center space-x-2">
               <Filter className="w-5 h-5 text-gray-400" />
@@ -401,9 +424,10 @@ const fetchTaxRate = async () => {
           )}
         </div>
       </div>
-{showTaxModal && (
+      {/* Tax Rate Modal */}
+      {showTaxModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-black/80 backdrop-blur-lg rounded-xl p-6 border border-purple-500/20 w-full max-w-md">
+          <div className="bg-gray-900 backdrop-blur-lg rounded-xl p-6 border border-cyan-500/20 w-full max-w-md">
             <h2 className="text-xl font-bold text-white mb-4">Update Tax Rate</h2>
             <div className="space-y-4">
               <div>
@@ -411,27 +435,32 @@ const fetchTaxRate = async () => {
                   Tax Rate (%)
                 </label>
                 <input
-                  type="number"
+                  type="text"
                   value={newTaxRate}
-                  onChange={(e) => setNewTaxRate(Number(e.target.value))}
-                  min="0"
-                  max="100"
-                  step="0.1"
-                  className="w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                  onChange={handleTaxRateChange}
+                  className="w-full px-4 py-3 bg-gray-800 border border-cyan-500/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                  placeholder="Enter tax rate (0-100)"
                 />
               </div>
               <div className="flex justify-end space-x-4">
                 <button
-                  onClick={() => setShowTaxModal(false)}
+                  onClick={() => {
+                    setNewTaxRate(stats.taxRate.toString());
+                    setShowTaxModal(false);
+                  }}
                   className="px-6 py-3 text-gray-400 hover:text-white transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={updateTaxRate}
-                  className="bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white font-medium py-3 px-6 rounded-lg transition-all duration-200"
+                  disabled={isUpdatingTax || !newTaxRate}
+                  className={`px-6 py-3 rounded-lg transition-all duration-200 ${isUpdatingTax || !newTaxRate
+                      ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
+                      : 'bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white'
+                    }`}
                 >
-                  Save Tax Rate
+                  {isUpdatingTax ? 'Saving...' : 'Save Tax Rate'}
                 </button>
               </div>
             </div>
@@ -452,8 +481,8 @@ const fetchTaxRate = async () => {
               key={mode.key}
               onClick={() => setViewMode(mode.key as any)}
               className={`flex items-center space-x-2 px-3 lg:px-4 py-2 rounded-lg transition-all duration-200 ${viewMode === mode.key
-                  ? 'bg-gradient-to-r from-cyan-500 to-purple-500 text-white'
-                  : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10'
+                ? 'bg-gradient-to-r from-cyan-500 to-purple-500 text-white'
+                : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10'
                 }`}
             >
               <Icon className="w-4 h-4 lg:w-5 lg:h-5" />
@@ -478,8 +507,8 @@ const fetchTaxRate = async () => {
                   key={filter.key}
                   onClick={() => setOverviewFilter(filter.key as any)}
                   className={`px-3 py-1 rounded-lg transition-all duration-200 text-sm ${overviewFilter === filter.key
-                      ? 'bg-gradient-to-r from-cyan-500 to-purple-500 text-white'
-                      : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10'
+                    ? 'bg-gradient-to-r from-cyan-500 to-purple-500 text-white'
+                    : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10'
                     }`}
                 >
                   {filter.label}
@@ -695,8 +724,8 @@ const fetchTaxRate = async () => {
                 <div
                   key={account.id}
                   className={`rounded-lg p-4 border ${account.status === 'active'
-                      ? 'bg-gradient-to-r from-green-500/10 to-emerald-500/10 border-green-500/20'
-                      : 'bg-gradient-to-r from-red-500/10 to-pink-500/10 border-red-500/20'
+                    ? 'bg-gradient-to-r from-green-500/10 to-emerald-500/10 border-green-500/20'
+                    : 'bg-gradient-to-r from-red-500/10 to-pink-500/10 border-red-500/20'
                     }`}
                 >
                   <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
@@ -705,14 +734,14 @@ const fetchTaxRate = async () => {
                         <h3 className="text-lg font-semibold text-white">{account.name}</h3>
                         <div className="flex items-center space-x-2">
                           <span className={`px-2 py-1 rounded-full text-xs ${account.type === 'pph'
-                              ? 'bg-purple-500/20 text-purple-400'
-                              : 'bg-orange-500/20 text-orange-400'
+                            ? 'bg-purple-500/20 text-purple-400'
+                            : 'bg-orange-500/20 text-orange-400'
                             }`}>
                             {account.type.toUpperCase()}
                           </span>
                           <span className={`px-2 py-1 rounded-full text-xs ${account.status === 'active'
-                              ? 'bg-green-500/20 text-green-400'
-                              : 'bg-red-500/20 text-red-400'
+                            ? 'bg-green-500/20 text-green-400'
+                            : 'bg-red-500/20 text-red-400'
                             }`}>
                             {account.status}
                           </span>
@@ -743,7 +772,7 @@ const fetchTaxRate = async () => {
         </div>
       )}
 
-      
+
     </div>
   );
 }
