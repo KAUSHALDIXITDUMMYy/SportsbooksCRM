@@ -743,22 +743,7 @@ const fetchTaxRate = async () => {
         </div>
       )}
 
-      {/* Add this after the existing stats cards */}
-      <div className="bg-black/20 backdrop-blur-sm rounded-xl p-4 lg:p-6 border border-purple-500/20">
-        <h2 className="text-lg lg:text-xl font-bold text-white mb-4">Global Settings</h2>
-        <div className="flex items-center space-x-4">
-          <label className="text-gray-400">Tax Percentage:</label>
-          <input
-            type="number"
-            min="0"
-            max="100"
-            value={settings.taxPercentage}
-            onChange={(e) => updateSettings({ taxPercentage: Number(e.target.value) })}
-            className="w-32 px-3 py-2 bg-white/5 border border-purple-500/20 rounded text-white"
-          />
-          <span className="text-gray-400">%</span>
-        </div>
-      </div>
+      
     </div>
   );
 }
