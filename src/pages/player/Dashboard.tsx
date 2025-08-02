@@ -21,6 +21,7 @@ interface Entry {
   accountId: string;
   date: string;
   profitLoss: number;
+  
   startingBalance: number;
   endingBalance: number;
   refillAmount: number;
