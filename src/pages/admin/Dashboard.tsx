@@ -5,6 +5,7 @@ import { useSettings } from '../../contexts/SettingsContext';
 import { Users, CreditCard, UserPlus, TrendingUp, Calendar, Filter, BarChart3, Eye, Search, Settings, Download } from 'lucide-react';
 import { format, subDays, startOfDay, endOfDay, parseISO } from 'date-fns';
 import * as XLSX from 'xlsx';
+import { useNavigate } from 'react-router-dom';
 
 interface DashboardStats {
   totalAgents: number;
@@ -73,6 +74,7 @@ interface EntryData {
 }
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const [stats, setStats] = useState<DashboardStats>({
     totalAgents: 0,
     totalAccounts: 0,
@@ -462,144 +464,102 @@ export default function Dashboard() {
       value: filteredStats.agents,
       icon: Users,
       color: 'from-cyan-500 to-blue-500',
-      bgColor: 'bg-cyan-500/10'
+      bgColor: 'bg-cyan-500/10',
+      onClick: () => navigate('/admin/agents')
     },
     {
       title: 'Total Accounts',
       value: filteredStats.accounts,
       icon: CreditCard,
       color: 'from-purple-500 to-pink-500',
-      bgColor: 'bg-purple-500/10'
+      bgColor: 'bg-purple-500/10',
+      onClick: () => navigate('/admin/accounts')
     },
     {
       title: 'Active Accounts',
       value: stats.activeAccounts,
       icon: BarChart3,
       color: 'from-green-500 to-emerald-500',
-      bgColor: 'bg-green-500/10'
+      bgColor: 'bg-green-500/10',
+      onClick: () => navigate('/admin/accounts')
     },
     {
       title: 'Total Clickers',
       value: filteredStats.players,
       icon: UserPlus,
       color: 'from-orange-500 to-red-500',
-      bgColor: 'bg-orange-500/10'
+      bgColor: 'bg-orange-500/10',
+      onClick: () => navigate('/admin/players')
     }
   ];
 
   return (
     <div className="space-y-6 lg:space-y-8">
-      {/* Header */}
-      <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center space-y-4 lg:space-y-0">
-        <div>
-          <h1 className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">
-            Admin Dashboard
-          </h1>
-          <p className="text-gray-400 mt-1">Monitor your business platform performance</p>
-        </div>
+     {/* Header */}
+<div className="flex flex-col lg:flex-row lg:justify-between lg:items-center space-y-4 lg:space-y-0">
+  <div>
+    <h1 className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">
+      Admin Dashboard
+    </h1>
+    <p className="text-gray-400 mt-1">Monitor your business platform performance</p>
+  </div>
 
-        <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-4 sm:space-y-0 sm:space-x-4">
-          <button
-            onClick={() => setShowTaxModal(true)}
-            className="flex items-center space-x-2 bg-white/5 hover:bg-white/10 border border-purple-500/20 px-3 py-2 rounded-lg transition-colors"
-          >
-            <Settings className="w-5 h-5 text-gray-400" />
-            <span className="text-sm text-white">Tax Rate: <span className="text-gray-400">{stats.taxRate}%</span></span>
-          </button>
-          <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-4 sm:space-y-0 sm:space-x-4">
-            <div className="flex items-center space-x-2">
-              <Filter className="w-5 h-5 text-gray-400" />
-              <select
-                value={dateFilter}
-                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setDateFilter(e.target.value)}
-                className="appearance-none bg-white/5 border border-purple-500/20 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-cyan-400 pr-8 bg-[length:20px_20px] bg-[position:right_8px_center] bg-no-repeat"
-                style={{
-                  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23ffffff'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E")`
-                }}
-              >
-                <option value="today" className="bg-gray-800 text-white hover:bg-cyan-500">
-                  Today
-                </option>
-                <option value="week" className="bg-gray-800 text-white hover:bg-cyan-500">
-                  This Week
-                </option>
-                <option value="month" className="bg-gray-800 text-white hover:bg-cyan-500">
-                  This Month
-                </option>
-                <option value="custom" className="bg-gray-800 text-white hover:bg-cyan-500">
-                  Custom Range
-                </option>
-              </select>
-            </div>
-          </div>
+  <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-4 sm:space-y-0 sm:space-x-4">
+    {/* Date Filter - Matches the styling from Profit/Loss Summary */}
+    <div className="flex items-center space-x-2">
+      <Filter className="w-5 h-5 text-gray-400" />
+      <select
+        value={dateFilter}
+        onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setDateFilter(e.target.value)}
+        className="appearance-none bg-white/5 border border-purple-500/20 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-cyan-400 pr-8 bg-[length:20px_20px] bg-[position:right_8px_center] bg-no-repeat"
+        style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23ffffff'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E")`
+        }}
+      >
+        <option value="today" className="bg-gray-800 text-white hover:bg-cyan-500">
+          Today
+        </option>
+        <option value="week" className="bg-gray-800 text-white hover:bg-cyan-500">
+          This Week
+        </option>
+        <option value="month" className="bg-gray-800 text-white hover:bg-cyan-500">
+          This Month
+        </option>
+        <option value="custom" className="bg-gray-800 text-white hover:bg-cyan-500">
+          Custom Range
+        </option>
+      </select>
+    </div>
 
-          {dateFilter === 'custom' && (
-            <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-2">
-              <input
-                type="date"
-                value={customDateRange.startDate}
-                onChange={(e) => setCustomDateRange(prev => ({ ...prev, startDate: e.target.value }))}
-                className="bg-white/5 border border-purple-500/20 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
-              />
-              <span className="text-gray-400 hidden sm:block">to</span>
-              <input
-                type="date"
-                value={customDateRange.endDate}
-                onChange={(e) => setCustomDateRange(prev => ({ ...prev, endDate: e.target.value }))}
-                className="bg-white/5 border border-purple-500/20 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
-              />
-            </div>
-          )}
-        </div>
+    {/* Custom Date Range Inputs - Only shown when custom is selected */}
+    {dateFilter === 'custom' && (
+      <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-2">
+        <input
+          type="date"
+          value={customDateRange.startDate}
+          onChange={(e) => setCustomDateRange(prev => ({ ...prev, startDate: e.target.value }))}
+          className="bg-white/5 border border-purple-500/20 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
+        />
+        <span className="text-gray-400 hidden sm:block">to</span>
+        <input
+          type="date"
+          value={customDateRange.endDate}
+          onChange={(e) => setCustomDateRange(prev => ({ ...prev, endDate: e.target.value }))}
+          className="bg-white/5 border border-purple-500/20 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
+        />
       </div>
-      
-      {/* Tax Rate Modal */}
-      {showTaxModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-gray-900 backdrop-blur-lg rounded-xl p-6 border border-cyan-500/20 w-full max-w-md">
-            <h2 className="text-xl font-bold text-white mb-4">Update Tax Rate</h2>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Tax Rate (%)
-                </label>
-                <input
-                  type="number"
-                  value={newTaxRate}
-                  onChange={handleTaxRateChange}
-                  min="0"
-                  max="100"
-                  className="w-full px-4 py-3 bg-gray-800 border border-cyan-500/30 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
-                  placeholder="Enter tax rate (0-100)"
-                />
-              </div>
-              <div className="flex justify-end space-x-4">
-                <button
-                  onClick={() => {
-                    setNewTaxRate(stats.taxRate);
-                    setShowTaxModal(false);
-                  }}
-                  className="px-6 py-3 text-gray-400 hover:text-white transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={updateTaxRate}
-                  disabled={isUpdatingTax}
-                  className={`px-6 py-3 rounded-lg transition-all duration-200 ${
-                    isUpdatingTax
-                      ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
-                      : 'bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white'
-                  }`}
-                >
-                  {isUpdatingTax ? 'Saving...' : 'Save Tax Rate'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-      
+    )}
+
+    {/* Tax Rate Button */}
+    <button
+      onClick={() => setShowTaxModal(true)}
+      className="flex items-center space-x-2 bg-white/5 hover:bg-white/10 border border-purple-500/20 px-3 py-2 rounded-lg transition-colors"
+    >
+      <Settings className="w-5 h-5 text-gray-400" />
+      <span className="text-sm text-white">Tax Rate: <span className="text-gray-400">{stats.taxRate}%</span></span>
+    </button>
+  </div>
+</div>
       {/* View Mode Selector */}
       <div className="flex flex-wrap gap-2">
         {[
@@ -668,7 +628,8 @@ export default function Dashboard() {
               return (
                 <div
                   key={card.title}
-                  className={`${card.bgColor} backdrop-blur-sm rounded-xl p-4 lg:p-6 border border-purple-500/20 hover:scale-105 transition-transform duration-200`}
+                  onClick={card.onClick}
+                  className={`${card.bgColor} backdrop-blur-sm rounded-xl p-4 lg:p-6 border border-purple-500/20 hover:scale-105 transition-transform duration-200 cursor-pointer`}
                 >
                   <div className="flex items-center justify-between mb-4">
                     <div className={`p-2 lg:p-3 rounded-lg bg-gradient-to-r ${card.color}`}>
@@ -722,8 +683,49 @@ export default function Dashboard() {
           <div className="bg-black/20 backdrop-blur-sm rounded-xl p-4 lg:p-6 border border-purple-500/20">
             <div className="flex items-center justify-between mb-4 lg:mb-6">
               <h2 className="text-lg lg:text-xl font-bold text-white">Profit/Loss Summary</h2>
-              <Calendar className="w-5 h-5 text-gray-400" />
+              <div className="flex items-center space-x-2">
+                <Filter className="w-5 h-5 text-gray-400" />
+                <select
+                  value={dateFilter}
+                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setDateFilter(e.target.value)}
+                  className="appearance-none bg-white/5 border border-purple-500/20 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-cyan-400 pr-8 bg-[length:20px_20px] bg-[position:right_8px_center] bg-no-repeat"
+                  style={{
+                    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23ffffff'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E")`
+                  }}
+                >
+                  <option value="today" className="bg-gray-800 text-white hover:bg-cyan-500">
+                    Today
+                  </option>
+                  <option value="week" className="bg-gray-800 text-white hover:bg-cyan-500">
+                    This Week
+                  </option>
+                  <option value="month" className="bg-gray-800 text-white hover:bg-cyan-500">
+                    This Month
+                  </option>
+                  <option value="custom" className="bg-gray-800 text-white hover:bg-cyan-500">
+                    Custom Range
+                  </option>
+                </select>
+              </div>
             </div>
+
+            {dateFilter === 'custom' && (
+              <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-2 mb-4">
+                <input
+                  type="date"
+                  value={customDateRange.startDate}
+                  onChange={(e) => setCustomDateRange(prev => ({ ...prev, startDate: e.target.value }))}
+                  className="bg-white/5 border border-purple-500/20 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                />
+                <span className="text-gray-400 hidden sm:block">to</span>
+                <input
+                  type="date"
+                  value={customDateRange.endDate}
+                  onChange={(e) => setCustomDateRange(prev => ({ ...prev, endDate: e.target.value }))}
+                  className="bg-white/5 border border-purple-500/20 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                />
+              </div>
+            )}
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-6">
               <div className="bg-gradient-to-r from-green-500/10 to-emerald-500/10 rounded-lg p-4 border border-green-500/20">
@@ -733,19 +735,9 @@ export default function Dashboard() {
                 </p>
               </div>
 
-              <div className="bg-gradient-to-r from-blue-500/10 to-cyan-500/10 rounded-lg p-4 border border-blue-500/20">
-                <p className="text-sm text-gray-400">Avg Per Transaction</p>
-                <p className="text-xl lg:text-2xl font-bold text-cyan-400">
-                  {loading ? '...' : `$${stats.totalTransactions > 0 ? (stats.totalProfit / stats.totalTransactions).toFixed(2) : '0.00'}`}
-                </p>
-              </div>
+            
 
-              <div className="bg-gradient-to-r from-purple-500/10 to-pink-500/10 rounded-lg p-4 border border-purple-500/20">
-                <p className="text-sm text-gray-400">Total Transactions</p>
-                <p className="text-xl lg:text-2xl font-bold text-purple-400">
-                  {loading ? '...' : stats.totalTransactions.toLocaleString()}
-                </p>
-              </div>
+             
             </div>
           </div>
         </>
@@ -794,7 +786,7 @@ export default function Dashboard() {
                       <div>
                         <p className="text-sm text-gray-400">Commission Expense</p>
                         <p className="text-lg lg:text-xl font-bold text-yellow-400">
-                          ${((agent.totalProfit * agent.commissionPercentage) / 100 + (agent.flatCommission || 0)).toLocaleString()}
+                          -${((agent.totalProfit * agent.commissionPercentage) / 100 + (agent.flatCommission || 0)).toLocaleString()}
                         </p>
                       </div>
                     </div>

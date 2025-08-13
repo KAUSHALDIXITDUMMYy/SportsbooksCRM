@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { collection, getDocs, query, where, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { doc as firestoreDoc, setDoc, addDoc } from 'firebase/firestore';
-import { db } from '../../firebase';
-import { Plus, UserPlus, Trash2, Edit, Save, X, Search, ChevronDown, ChevronUp, UserCheck, UserX } from 'lucide-react';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { db, auth } from '../../firebase';
+import { Plus, UserPlus, Trash2, Edit, Save, X, Search, ChevronDown, ChevronUp, UserCheck, UserX, Key } from 'lucide-react';
+import { createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 
 interface Player {
   id: string;
@@ -14,6 +14,7 @@ interface Player {
   createdAt: Date;
   status?: string; // For inactive players
   percentage?: number; // Player's winning percentage
+  password?: string; // Only for inactive players
 }
 
 export default function Players() {
@@ -33,8 +34,9 @@ export default function Players() {
   const [loading, setLoading] = useState(true);
   const [activePlayersExpanded, setActivePlayersExpanded] = useState(true);
   const [inactivePlayersExpanded, setInactivePlayersExpanded] = useState(true);
-  // Add local state for editing percentage input
   const [editingPercentage, setEditingPercentage] = useState<string>('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [resetPasswordEmail, setResetPasswordEmail] = useState('');
 
   useEffect(() => {
     fetchPlayers();
@@ -116,12 +118,19 @@ export default function Players() {
     try {
       // Determine which collection to update based on player status
       const collectionName = editingPlayer.status ? 'players' : 'users';
-      await updateDoc(doc(db, collectionName, editingPlayer.id), {
+      const updateData: any = {
         name: editingPlayer.name.trim(),
         email: editingPlayer.email.trim(),
         percentage: editingPlayer.percentage === undefined ? 0 : editingPlayer.percentage,
         updatedAt: new Date()
-      });
+      };
+
+      // Only update password if it's an inactive player and password was changed
+      if (editingPlayer.status && editingPlayer.password) {
+        updateData.password = editingPlayer.password;
+      }
+
+      await updateDoc(doc(db, collectionName, editingPlayer.id), updateData);
       setEditingPlayer(null);
       fetchPlayers();
     } catch (error) {
@@ -148,12 +157,21 @@ export default function Players() {
         const playerToActivate = inactivePlayers.find(p => p.id === playerId);
         if (!playerToActivate) return;
 
+        // Create user in Firebase Authentication
+        const userCredential = await createUserWithEmailAndPassword(
+          auth,
+          playerToActivate.email,
+          playerToActivate.password || 'defaultPassword' // Should have proper validation
+        );
+
         // Create user in users collection (active)
         await addDoc(collection(db, 'users'), {
+          uid: userCredential.user.uid,
           email: playerToActivate.email,
           name: playerToActivate.name,
           role: 'player',
-          createdAt: new Date()
+          createdAt: new Date(),
+          percentage: playerToActivate.percentage || 0
         });
         
         // Remove from inactive players
@@ -163,6 +181,17 @@ export default function Players() {
       } catch (error) {
         console.error('Error activating player:', error);
       }
+    }
+  };
+
+  const sendPasswordReset = async (email: string) => {
+    try {
+      await sendPasswordResetEmail(auth, email);
+      alert(`Password reset email sent to ${email}`);
+      setResetPasswordEmail('');
+    } catch (error) {
+      console.error('Error sending password reset email:', error);
+      alert('Failed to send password reset email');
     }
   };
 
@@ -289,6 +318,19 @@ export default function Players() {
                             <X className="w-4 h-4" />
                           </button>
                         </div>
+                        <div className="pt-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setResetPasswordEmail(player.email);
+                              sendPasswordReset(player.email);
+                            }}
+                            className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center space-x-1"
+                          >
+                            <Key className="w-3 h-3" />
+                            <span>Send Password Reset Email</span>
+                          </button>
+                        </div>
                       </form>
                     ) : (
                       <>
@@ -399,16 +441,44 @@ export default function Players() {
                           placeholder="Email Address"
                           required
                         />
-                        <input
-                          type="number"
-                          min="0"
-                          max="100"
-                          value={editingPlayer?.percentage ?? 0}
-                          onChange={(e) => setEditingPlayer(editingPlayer ? { ...editingPlayer, percentage: Number(e.target.value) } : null)}
-                          className="w-full px-3 py-2 bg-white/5 border border-purple-500/20 rounded-lg text-white"
-                          placeholder="Percentage (%)"
-                          required
-                        />
+                        <div className="relative">
+                          <input
+                            type={showPassword ? "text" : "password"}
+                            value={editingPlayer.password || ''}
+                            onChange={(e) => setEditingPlayer({ ...editingPlayer, password: e.target.value })}
+                            className="w-full px-3 py-2 bg-white/5 border border-purple-500/20 rounded-lg text-white"
+                            placeholder="Password"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white"
+                          >
+                            {showPassword ? (
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                              </svg>
+                            ) : (
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                              </svg>
+                            )}
+                          </button>
+                        </div>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            min="0"
+                            max="100"
+                            value={editingPlayer?.percentage ?? 0}
+                            onChange={(e) => setEditingPlayer(editingPlayer ? { ...editingPlayer, percentage: Number(e.target.value) } : null)}
+                            className="w-full px-3 py-2 bg-white/5 border border-purple-500/20 rounded-lg text-white"
+                            placeholder="Percentage (%)"
+                            required
+                          />
+                          <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400">%</span>
+                        </div>
                         <div className="flex space-x-2">
                           <button
                             type="submit"
@@ -424,6 +494,7 @@ export default function Players() {
                             <X className="w-4 h-4" />
                           </button>
                         </div>
+                        
                       </form>
                     ) : (
                       <>
@@ -439,7 +510,10 @@ export default function Players() {
                           </div>
                           <div className="flex items-center space-x-2">
                             <button
-                              onClick={() => setEditingPlayer(player)}
+                              onClick={() => { 
+                                setEditingPlayer(player); 
+                                setShowPassword(false);
+                              }}
                               className="p-2 text-gray-400 hover:text-cyan-400 transition-colors"
                             >
                               <Edit className="w-4 h-4" />

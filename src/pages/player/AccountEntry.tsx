@@ -4,7 +4,7 @@ import { collection, addDoc, getDocs, query, where, doc, getDoc, updateDoc, dele
 import { db } from '../../firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSettings } from '../../contexts/SettingsContext';
-import { ArrowLeft, Save, Calendar, DollarSign, ToggleLeft, ToggleRight, Edit, Trash2, Plus } from 'lucide-react';
+import { ArrowLeft, Save, Calendar, DollarSign, ToggleLeft, ToggleRight, Edit, Trash2, Plus, Lock, Unlock } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface Account {
@@ -15,7 +15,7 @@ interface Account {
   websiteURL?: string;
   agentId: string;
   agentName: string;
-  status: 'active' | 'inactive' | 'unused';
+  status: 'active' | 'inactive' | 'unused' | 'locked';
   depositAmount?: number;
   referralPercentage?: number;
 }
@@ -39,7 +39,7 @@ interface Entry {
   companyAmount: number;
   taxableAmount: number;
   referralAmount: number;
-  accountStatus: 'active' | 'inactive';
+  accountStatus: 'active' | 'inactive' | 'locked';
   notes: string;
 }
 
@@ -76,7 +76,7 @@ export default function AccountEntry() {
   const [saving, setSaving] = useState(false);
   const [taxRate, setTaxRate] = useState(10); // Default tax rate
 
- useEffect(() => {
+  useEffect(() => {
     if (id && userData?.uid) {
       fetchAccountData();
       fetchTaxRate();
@@ -93,8 +93,9 @@ export default function AccountEntry() {
       console.error('Error fetching tax rate:', error);
     }
   };
+
   // Calculate all amounts whenever relevant fields change
- useEffect(() => {
+  useEffect(() => {
     const calculateAmounts = async () => {
       const profitLoss = 
         (currentEntry.endingBalance || 0) - 
@@ -156,127 +157,7 @@ export default function AccountEntry() {
     currentEntry.refillAmount,
     account,
     userData,
-    taxRate // Add taxRate to dependencies
-  ]);
-
-  // Similar calculation for editing mode
-  useEffect(() => {
-    if (!editingEntry || !account || !userData) return;
-    
-    const calculateEditingAmounts = async () => {
-      const profitLoss = 
-        (editingEntry.endingBalance || 0) - 
-        (editingEntry.startingBalance || 0) + 
-        (editingEntry.withdrawal || 0) - 
-        (editingEntry.refillAmount || 0);
-      
-      try {
-        // Calculate Clicker Amount
-        const clickerAmount = (profitLoss * (userData.percentage || 0)) / 100;
-        
-        // Get agent data for commission calculation
-        const agent = await getDoc(doc(db, 'agents', account.agentId));
-        const agentData = agent.data();
-        
-        // Calculate Account Holder Amount
-        const accHolderAmount = agentData ? 
-          ((profitLoss * (agentData.commissionPercentage || 0)) / 100) + 
-          (agentData.flatCommission || 0) : 0;
-        
-        // Calculate Tax Amount using the fetched tax rate
-        const taxAmount = (profitLoss * taxRate) / 100;
-        
-        // Calculate Referral Amount only if referralPercentage exists
-        const referralAmount = account.referralPercentage ? 
-          (profitLoss * account.referralPercentage) / 100 : 0;
-        
-        // Calculate Company Amount
-        const companyAmount = profitLoss - clickerAmount - accHolderAmount - taxAmount - referralAmount;
-        
-        // Update all calculated amounts
-        setEditingEntry(prev => prev ? ({
-          ...prev,
-          profitLoss,
-          clickerAmount,
-          accHolderAmount,
-          companyAmount,
-          taxableAmount: taxAmount,
-          referralAmount
-        }) : null);
-      } catch (error) {
-        console.error('Error calculating amounts:', error);
-      }
-    };
-
-    calculateEditingAmounts();
-  }, [
-    editingEntry?.startingBalance,
-    editingEntry?.endingBalance,
-    editingEntry?.withdrawal,
-    editingEntry?.refillAmount,
-    account,
-    userData,
-    taxRate // Add taxRate to dependencies
-  ]);
-
-  // Similar calculation for editing mode
-  useEffect(() => {
-    if (!editingEntry || !account || !userData) return;
-    
-    const calculateEditingAmounts = async () => {
-      const profitLoss = 
-        (editingEntry.endingBalance || 0) - 
-        (editingEntry.startingBalance || 0) + 
-        (editingEntry.withdrawal || 0) - 
-        (editingEntry.refillAmount || 0);
-      
-      try {
-        // Calculate Clicker Amount
-        const clickerAmount = (profitLoss * (userData.percentage || 0)) / 100;
-        
-        // Get agent data for commission calculation
-        const agent = await getDoc(doc(db, 'agents', account.agentId));
-        const agentData = agent.data();
-        
-        // Calculate Account Holder Amount
-        const accHolderAmount = agentData ? 
-          ((profitLoss * (agentData.commissionPercentage || 0)) / 100) + 
-          (agentData.flatCommission || 0) : 0;
-        
-        // Fixed tax percentage (removed useSettings)
-        const taxPercentage = 10; // Default 10% tax
-        const taxAmount = (profitLoss * taxPercentage) / 100;
-        
-        // Calculate Referral Amount only if referralPercentage exists
-        const referralAmount = account.referralPercentage ? 
-          (profitLoss * account.referralPercentage) / 100 : 0;
-        
-        // Calculate Company Amount
-        const companyAmount = profitLoss - clickerAmount - accHolderAmount - taxAmount - referralAmount;
-        
-        // Update all calculated amounts
-        setEditingEntry(prev => prev ? ({
-          ...prev,
-          profitLoss,
-          clickerAmount,
-          accHolderAmount,
-          companyAmount,
-          taxableAmount: taxAmount,
-          referralAmount
-        }) : null);
-      } catch (error) {
-        console.error('Error calculating amounts:', error);
-      }
-    };
-
-    calculateEditingAmounts();
-  }, [
-    editingEntry?.startingBalance,
-    editingEntry?.endingBalance,
-    editingEntry?.withdrawal,
-    editingEntry?.refillAmount,
-    account,
-    userData
+    taxRate
   ]);
 
   const fetchAccountData = async () => {
@@ -300,9 +181,11 @@ export default function AccountEntry() {
         const entriesSnapshot = await getDocs(entriesQuery);
         
         if (entriesSnapshot.size > 0) {
-          status = 'active'; // Account has entries, set to active
-        } else if (status !== 'inactive') {
-          status = 'unused'; // No entries and not manually set to inactive
+          if (status !== 'locked' && status !== 'inactive') {
+            status = 'active'; // Account has entries, set to active if not locked or inactive
+          }
+        } else if (status !== 'inactive' && status !== 'locked') {
+          status = 'unused'; // No entries and not manually set to inactive or locked
         }
         
         setAccount({
@@ -391,10 +274,10 @@ export default function AccountEntry() {
           createdAt: new Date()
         });
         
-        // If account was unused, update to active
-        if (account?.status === 'unused') {
+        // If account was unused, update to active (unless it's locked)
+        if (account?.status === 'unused' && currentEntry.accountStatus !== 'locked') {
           await updateDoc(doc(db, 'accounts', id!), {
-            status: 'active',
+            status: currentEntry.accountStatus,
             updatedAt: new Date()
           });
         }
@@ -462,8 +345,8 @@ export default function AccountEntry() {
         const entriesSnapshot = await getDocs(entriesQuery);
         
         if (entriesSnapshot.size === 0) {
-          // No entries left, set account status to 'unused' if not manually set to inactive
-          if (account?.status !== 'inactive') {
+          // No entries left, set account status to 'unused' if not manually set to inactive or locked
+          if (account?.status !== 'inactive' && account?.status !== 'locked') {
             await updateDoc(doc(db, 'accounts', id!), {
               status: 'unused',
               updatedAt: new Date()
@@ -476,6 +359,26 @@ export default function AccountEntry() {
         console.error('Error deleting entry:', error);
       }
     }
+  };
+
+  const toggleAccountStatus = () => {
+    let newStatus: 'active' | 'inactive' | 'locked';
+    
+    switch(currentEntry.accountStatus) {
+      case 'active':
+        newStatus = 'inactive';
+        break;
+      case 'inactive':
+        newStatus = 'locked';
+        break;
+      case 'locked':
+        newStatus = 'active';
+        break;
+      default:
+        newStatus = 'active';
+    }
+    
+    handleInputChange('accountStatus', newStatus);
   };
 
   if (loading) {
@@ -500,7 +403,6 @@ export default function AccountEntry() {
     );
   }
 
-  // Helper function to render auto-calculated amount fields
   const renderAmountInput = (
     label: string,
     value: number,
@@ -524,6 +426,34 @@ export default function AccountEntry() {
     </div>
   );
 
+  const getStatusColor = (status: string) => {
+    switch(status) {
+      case 'active':
+        return 'bg-green-500/20 text-green-400 border-green-500/30';
+      case 'inactive':
+        return 'bg-red-500/20 text-red-400 border-red-500/30';
+      case 'locked':
+        return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30';
+      case 'unused':
+        return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
+      default:
+        return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
+    }
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch(status) {
+      case 'active':
+        return <ToggleRight className="w-5 h-5" />;
+      case 'inactive':
+        return <ToggleLeft className="w-5 h-5" />;
+      case 'locked':
+        return <Lock className="w-5 h-5" />;
+      default:
+        return <ToggleRight className="w-5 h-5" />;
+    }
+  };
+
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between">
@@ -546,13 +476,7 @@ export default function AccountEntry() {
               }`}>
                 {(account.type || 'pph').toUpperCase()}
               </span>
-              <span className={`px-3 py-1 rounded-full text-sm ${
-                currentEntry.accountStatus === 'active' 
-                  ? 'bg-green-500/20 text-green-400' 
-                  : currentEntry.accountStatus === 'inactive'
-                  ? 'bg-red-500/20 text-red-400'
-                  : 'bg-yellow-500/20 text-yellow-400'
-              }`}>
+              <span className={`px-3 py-1 rounded-full text-sm ${getStatusColor(currentEntry.accountStatus)}`}>
                 {currentEntry.accountStatus.toUpperCase()}
               </span>
             </div>
@@ -597,18 +521,10 @@ export default function AccountEntry() {
               <div className="flex items-center space-x-4">
                 <button
                   type="button"
-                  onClick={() => handleInputChange('accountStatus', currentEntry.accountStatus === 'active' ? 'inactive' : 'active')}
-                  className={`flex items-center space-x-2 px-4 py-3 rounded-lg transition-all duration-200 ${
-                    currentEntry.accountStatus === 'active'
-                      ? 'bg-green-500/20 text-green-400 border border-green-500/30'
-                      : 'bg-red-500/20 text-red-400 border border-red-500/30'
-                  }`}
+                  onClick={toggleAccountStatus}
+                  className={`flex items-center space-x-2 px-4 py-3 rounded-lg transition-all duration-200 ${getStatusColor(currentEntry.accountStatus)}`}
                 >
-                  {currentEntry.accountStatus === 'active' ? (
-                    <ToggleRight className="w-5 h-5" />
-                  ) : (
-                    <ToggleLeft className="w-5 h-5" />
-                  )}
+                  {getStatusIcon(currentEntry.accountStatus)}
                   <span className="capitalize">{currentEntry.accountStatus}</span>
                 </button>
               </div>
@@ -625,6 +541,7 @@ export default function AccountEntry() {
                 onChange={(e) => handleInputChange('startingBalance', e.target.value)}
                 className="w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
                 required
+                disabled={currentEntry.accountStatus === 'locked'}
               />
             </div>
             
@@ -639,6 +556,7 @@ export default function AccountEntry() {
                 onChange={(e) => handleInputChange('endingBalance', e.target.value)}
                 className="w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
                 required
+                disabled={currentEntry.accountStatus === 'locked'}
               />
             </div>
             
@@ -652,6 +570,7 @@ export default function AccountEntry() {
                 value={currentEntry.refillAmount === 0 ? '' : currentEntry.refillAmount}
                 onChange={(e) => handleInputChange('refillAmount', e.target.value)}
                 className="w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                disabled={currentEntry.accountStatus === 'locked'}
               />
             </div>
             
@@ -665,6 +584,7 @@ export default function AccountEntry() {
                 value={currentEntry.withdrawal === 0 ? '' : currentEntry.withdrawal}
                 onChange={(e) => handleInputChange('withdrawal', e.target.value)}
                 className="w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                disabled={currentEntry.accountStatus === 'locked'}
               />
             </div>
             
@@ -677,6 +597,7 @@ export default function AccountEntry() {
                 onChange={(e) => handleInputChange('complianceReview', e.target.value)}
                 className="w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:bg-gray-800"
                 required
+                disabled={currentEntry.accountStatus === 'locked'}
               >
                 <option className="bg-gray-800 text-white" value="Requested Document">Requested Document</option>
                 <option className="bg-gray-800 text-white" value="Document Submitted">Document Submitted</option>
@@ -695,6 +616,7 @@ export default function AccountEntry() {
                 value={currentEntry.clickerSettled}
                 onChange={(e) => handleInputChange('clickerSettled', e.target.value)}
                 className="w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:bg-gray-800"
+                disabled={currentEntry.accountStatus === 'locked'}
               >
                 <option className="bg-gray-800 text-white" value="No">No</option>
                 <option className="bg-gray-800 text-white" value="Yes">Yes</option>
@@ -718,6 +640,7 @@ export default function AccountEntry() {
               rows={3}
               className="w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-400"
               placeholder="Add any additional notes here..."
+              disabled={currentEntry.accountStatus === 'locked'}
             />
           </div>
           
@@ -731,7 +654,7 @@ export default function AccountEntry() {
             </button>
             <button
               type="submit"
-              disabled={saving}
+              disabled={saving || currentEntry.accountStatus === 'locked'}
               className="bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-600 hover:to-purple-600 text-white font-medium py-3 px-6 rounded-lg transition-all duration-200 flex items-center space-x-2 disabled:opacity-50"
             >
               <Save className="w-5 h-5" />
@@ -882,12 +805,14 @@ export default function AccountEntry() {
                       <button
                         onClick={() => setEditingEntry(entry)}
                         className="p-2 text-gray-400 hover:text-cyan-400 transition-colors"
+                        disabled={entry.accountStatus === 'locked'}
                       >
                         <Edit className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleDeleteEntry(entry.id!)}
                         className="p-2 text-gray-400 hover:text-red-400 transition-colors"
+                        disabled={entry.accountStatus === 'locked'}
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>

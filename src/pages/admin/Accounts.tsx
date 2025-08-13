@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { collection, addDoc, getDocs, deleteDoc, doc, query, where, updateDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
-import { Plus, CreditCard, Trash2, Edit, ExternalLink, Save, X, BarChart3, Search, Filter } from 'lucide-react';
+import { Plus, CreditCard, Trash2, Edit, ExternalLink, Save, X, BarChart3, Search, Filter, Lock, User } from 'lucide-react';
 
 interface Account {
   id: string;
@@ -18,9 +18,9 @@ interface Account {
   agentName: string;
   assignedToPlayerUid?: string;
   assignedToPlayerName?: string;
-  status: 'active' | 'inactive' | 'unused';
+  status: 'active' | 'inactive' | 'unused' | 'locked';
   createdAt: Date;
-  referralPercentage?: number;  // Add this line
+  referralPercentage?: number;
 }
 
 interface Agent {
@@ -29,11 +29,19 @@ interface Agent {
   accountCount: number;
 }
 
+interface Player {
+  id: string;
+  uid: string;
+  name: string;
+  email: string;
+}
+
 export default function Accounts() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [filteredAccounts, setFilteredAccounts] = useState<Account[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [agents, setAgents] = useState<Agent[]>([]);
+  const [players, setPlayers] = useState<Player[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
   const [newAccount, setNewAccount] = useState({
@@ -47,15 +55,18 @@ export default function Accounts() {
     sharePercentage: '',
     depositAmount: '',
     agentId: '',
-    status: 'active' as 'active' | 'inactive' | 'unused'
+    assignedToPlayerUid: '',
+    status: 'active' as 'active' | 'inactive' | 'unused' | 'locked',
+    referralPercentage: ''
   });
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<'all' | 'active' | 'inactive' | 'unused' | 'pph' | 'legal'>('all');
+  const [filter, setFilter] = useState<'all' | 'active' | 'inactive' | 'unused' | 'locked' | 'pph' | 'legal'>('all');
   const [agentFilter, setAgentFilter] = useState<string>('all');
 
   useEffect(() => {
     fetchAccounts();
     fetchAgents();
+    fetchPlayers();
   }, []);
 
   useEffect(() => {
@@ -63,13 +74,13 @@ export default function Accounts() {
     
     if (searchTerm) {
       filtered = filtered.filter(account => {
-        const searchableText = `${account.type === 'pph' ? account.username : account.name} ${account.agentName}`.toLowerCase();
+        const searchableText = `${account.type === 'pph' ? account.username : account.name} ${account.agentName} ${account.assignedToPlayerName || ''}`.toLowerCase();
         return searchableText.includes(searchTerm.toLowerCase());
       });
     }
     
     if (filter !== 'all') {
-      if (filter === 'active' || filter === 'inactive' || filter === 'unused') {
+      if (filter === 'active' || filter === 'inactive' || filter === 'unused' || filter === 'locked') {
         filtered = filtered.filter(account => account.status === filter);
       } else if (filter === 'pph' || filter === 'legal') {
         filtered = filtered.filter(account => account.type === filter);
@@ -99,16 +110,13 @@ export default function Accounts() {
             assignedToPlayerName = playerDoc.docs[0]?.data().name || 'Unknown Player';
           }
           
-          // Check if account has any entries and is assigned to determine status
           const entriesQuery = query(collection(db, 'entries'), where('accountId', '==', accountDoc.id));
           const entriesSnapshot = await getDocs(entriesQuery);
           
           let status = accountData.status || 'unused';
-          // If account has no entries or no player assigned, mark as unused
           if (entriesSnapshot.size === 0 || !accountData.assignedToPlayerUid) {
             status = 'unused';
           } else if (status === 'unused') {
-            // If account has entries and is assigned but marked as unused, update to active
             status = 'active';
             await updateDoc(doc(db, 'accounts', accountDoc.id), {
               status: 'active',
@@ -158,6 +166,22 @@ export default function Accounts() {
     }
   };
 
+  const fetchPlayers = async () => {
+    try {
+      const playersQuery = query(collection(db, 'users'), where('role', '==', 'player'));
+      const playersSnapshot = await getDocs(playersQuery);
+      const playersData = playersSnapshot.docs.map(doc => ({
+        id: doc.id,
+        uid: doc.data().uid,
+        name: doc.data().name,
+        email: doc.data().email
+      })) as Player[];
+      setPlayers(playersData);
+    } catch (error) {
+      console.error('Error fetching players:', error);
+    }
+  };
+
   const handleAddAccount = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newAccount.agentId) return;
@@ -165,9 +189,14 @@ export default function Accounts() {
     const accountData: any = {
       type: newAccount.type,
       agentId: newAccount.agentId,
-      status: 'unused', // Always set new accounts as unused
+      status: newAccount.status,
       createdAt: new Date()
     };
+
+    if (newAccount.assignedToPlayerUid) {
+      accountData.assignedToPlayerUid = newAccount.assignedToPlayerUid;
+      accountData.status = 'active'; // Automatically set to active when assigned
+    }
 
     if (newAccount.type === 'pph') {
       if (!newAccount.username || !newAccount.websiteURL || !newAccount.password) return;
@@ -183,6 +212,10 @@ export default function Accounts() {
       accountData.depositAmount = parseFloat(newAccount.depositAmount) || 0;
     }
 
+    if (newAccount.referralPercentage) {
+      accountData.referralPercentage = parseFloat(newAccount.referralPercentage);
+    }
+
     try {
       await addDoc(collection(db, 'accounts'), accountData);
       setNewAccount({
@@ -196,8 +229,9 @@ export default function Accounts() {
         sharePercentage: '',
         depositAmount: '',
         agentId: '',
+        assignedToPlayerUid: '',
         status: 'active',
-        referralPercentage: '',  // Add this line
+        referralPercentage: ''
       });
       setShowModal(false);
       fetchAccounts();
@@ -215,9 +249,12 @@ export default function Accounts() {
       type: editingAccount.type,
       agentId: editingAccount.agentId,
       status: editingAccount.status,
-      updatedAt: new Date(),
-      referralPercentage: editingAccount.referralPercentage ? Number(editingAccount.referralPercentage) : undefined,
+      updatedAt: new Date()
     };
+
+    if (editingAccount.referralPercentage !== undefined) {
+      updateData.referralPercentage = Number(editingAccount.referralPercentage);
+    }
 
     if (editingAccount.type === 'pph') {
       updateData.username = editingAccount.username?.trim();
@@ -257,8 +294,10 @@ export default function Accounts() {
     active: accounts.filter(a => a.status === 'active').length,
     inactive: accounts.filter(a => a.status === 'inactive').length,
     unused: accounts.filter(a => a.status === 'unused').length,
+    locked: accounts.filter(a => a.status === 'locked').length,
     pph: accounts.filter(a => a.type === 'pph').length,
-    legal: accounts.filter(a => a.type === 'legal').length
+    legal: accounts.filter(a => a.type === 'legal').length,
+    assigned: accounts.filter(a => a.assignedToPlayerUid).length
   };
 
   const dropdownArrowSvg = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23ffffff'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E")`;
@@ -282,7 +321,7 @@ export default function Accounts() {
         </button>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-8 gap-4">
         <div className="bg-gradient-to-r from-blue-500/10 to-cyan-500/10 backdrop-blur-sm rounded-xl p-4 border border-blue-500/20">
           <div className="flex items-center justify-between">
             <div>
@@ -337,6 +376,24 @@ export default function Accounts() {
             <div className="w-3 h-3 bg-yellow-400 rounded-full"></div>
           </div>
         </div>
+        <div className="bg-gradient-to-r from-gray-500/10 to-gray-700/10 backdrop-blur-sm rounded-xl p-4 border border-gray-500/20">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-400">Locked</p>
+              <p className="text-2xl font-bold text-gray-400">{accountStats.locked}</p>
+            </div>
+            <Lock className="w-5 h-5 text-gray-400" />
+          </div>
+        </div>
+        <div className="bg-gradient-to-r from-cyan-500/10 to-blue-500/10 backdrop-blur-sm rounded-xl p-4 border border-cyan-500/20">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-400">Assigned</p>
+              <p className="text-2xl font-bold text-cyan-400">{accountStats.assigned}</p>
+            </div>
+            <User className="w-5 h-5 text-cyan-400" />
+          </div>
+        </div>
       </div>
 
       <div className="flex flex-col md:flex-row gap-4">
@@ -377,12 +434,12 @@ export default function Accounts() {
         </div>
       </div>
 
-      <div className="flex space-x-4">
-        {['all', 'active', 'inactive', 'unused', 'pph', 'legal'].map((filterOption) => (
+      <div className="flex space-x-4 overflow-x-auto pb-2">
+        {['all', 'active', 'inactive', 'unused', 'locked', 'pph', 'legal'].map((filterOption) => (
           <button
             key={filterOption}
             onClick={() => setFilter(filterOption as any)}
-            className={`px-4 py-2 rounded-lg transition-all duration-200 capitalize ${
+            className={`px-4 py-2 rounded-lg transition-all duration-200 capitalize whitespace-nowrap ${
               filter === filterOption
                 ? 'bg-gradient-to-r from-cyan-500 to-purple-500 text-white'
                 : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10'
@@ -411,7 +468,12 @@ export default function Accounts() {
           filteredAccounts.map((account) => (
             <div
               key={account.id}
-              className="bg-black/20 backdrop-blur-sm rounded-xl p-6 border border-purple-500/20 hover:scale-105 transition-transform duration-200"
+              className={`bg-black/20 backdrop-blur-sm rounded-xl p-6 border transition-transform duration-200 ${
+                account.status === 'active' ? 'border-green-500/20 hover:border-green-500/40' :
+                account.status === 'inactive' ? 'border-red-500/20 hover:border-red-500/40' :
+                account.status === 'unused' ? 'border-yellow-500/20 hover:border-yellow-500/40' :
+                'border-gray-500/20 hover:border-gray-500/40'
+              } hover:scale-105`}
             >
               {editingAccount?.id === account.id ? (
                 <form onSubmit={handleEditAccount} className="space-y-4">
@@ -430,7 +492,7 @@ export default function Accounts() {
                     <select
                       value={editingAccount.status}
                       onChange={(e: React.ChangeEvent<HTMLSelectElement>) => 
-                        setEditingAccount({ ...editingAccount, status: e.target.value as 'active' | 'inactive' | 'unused' })
+                        setEditingAccount({ ...editingAccount, status: e.target.value as 'active' | 'inactive' | 'unused' | 'locked' })
                       }
                       className="appearance-none px-3 py-1 bg-white/5 border border-purple-500/20 rounded text-white text-sm pr-8 bg-no-repeat bg-[length:20px_20px] bg-[position:right_2px_center]"
                       style={{ backgroundImage: dropdownArrowSvg }}
@@ -438,6 +500,7 @@ export default function Accounts() {
                       <option value="active" className="bg-gray-800 text-white">Active</option>
                       <option value="inactive" className="bg-gray-800 text-white">Inactive</option>
                       <option value="unused" className="bg-gray-800 text-white">Unused</option>
+                      <option value="locked" className="bg-gray-800 text-white">Locked</option>
                     </select>
                   </div>
 
@@ -503,6 +566,23 @@ export default function Accounts() {
                     </>
                   )}
 
+                  <div className="relative">
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      max="100"
+                      value={editingAccount.referralPercentage || ''}
+                      onChange={(e) => setEditingAccount({ 
+                        ...editingAccount, 
+                        referralPercentage: e.target.value ? parseFloat(e.target.value) : undefined 
+                      })}
+                      placeholder="Referral Percentage"
+                      className="w-full px-3 py-2 pr-8 bg-white/5 border border-purple-500/20 rounded-lg text-white text-sm"
+                    />
+                    <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400">%</span>
+                  </div>
+
                   <select
                     value={editingAccount.agentId}
                     onChange={(e: React.ChangeEvent<HTMLSelectElement>) => 
@@ -552,7 +632,9 @@ export default function Accounts() {
                               ? 'bg-green-500/20 text-green-400' 
                               : account.status === 'inactive'
                               ? 'bg-red-500/20 text-red-400'
-                              : 'bg-yellow-500/20 text-yellow-400'
+                              : account.status === 'unused'
+                              ? 'bg-yellow-500/20 text-yellow-400'
+                              : 'bg-gray-500/20 text-gray-400'
                           }`}>
                             {account.status.toUpperCase()}
                           </span>
@@ -723,26 +805,6 @@ export default function Accounts() {
                       placeholder="Enter IP address"
                     />
                   </div>
-                  {newAccount.type === 'pph' && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-2">
-                        Referral Percentage (Optional)
-                      </label>
-                      <div className="relative">
-                        <input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          max="100"
-                          value={newAccount.referralPercentage}
-                          onChange={(e) => setNewAccount({ ...newAccount, referralPercentage: e.target.value })}
-                          className="w-full px-4 py-3 pr-8 bg-white/5 border border-purple-500/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-400"
-                          placeholder="Enter referral percentage"
-                        />
-                        <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400">%</span>
-                      </div>
-                    </div>
-                  )}
                 </>
               ) : (
                 <>
@@ -791,29 +853,27 @@ export default function Accounts() {
                       placeholder="Enter deposit amount"
                     />
                   </div>
-
-                  {newAccount.type === 'legal' && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-2">
-                        Referral Percentage (Optional)
-                      </label>
-                      <div className="relative">
-                        <input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          max="100"
-                          value={newAccount.referralPercentage}
-                          onChange={(e) => setNewAccount({ ...newAccount, referralPercentage: e.target.value })}
-                          className="w-full px-4 py-3 pr-8 bg-white/5 border border-purple-500/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-400"
-                          placeholder="Enter referral percentage"
-                        />
-                        <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400">%</span>
-                      </div>
-                    </div>
-                  )}
                 </>
               )}
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Referral Percentage (Optional)
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max="100"
+                    value={newAccount.referralPercentage}
+                    onChange={(e) => setNewAccount({ ...newAccount, referralPercentage: e.target.value })}
+                    className="w-full px-4 py-3 pr-8 bg-white/5 border border-purple-500/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                    placeholder="Enter referral percentage"
+                  />
+                  <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400">%</span>
+                </div>
+              </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -839,12 +899,42 @@ export default function Accounts() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Assign to Clicker (Optional)
+                </label>
+                <select
+                  value={newAccount.assignedToPlayerUid}
+                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) => 
+                    setNewAccount({ 
+                      ...newAccount, 
+                      assignedToPlayerUid: e.target.value,
+                      status: e.target.value ? 'active' : newAccount.status
+                    })
+                  }
+                  className="appearance-none w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400 pr-10 bg-no-repeat bg-[length:20px_20px] bg-[position:right_10px_center]"
+                  style={{ backgroundImage: dropdownArrowSvg }}
+                >
+                  <option value="" className="bg-gray-800 text-white">Unassigned</option>
+                  {players.map((player) => (
+                    <option key={player.id} value={player.uid} className="bg-gray-800 text-white hover:bg-cyan-500">
+                      {player.name} ({player.email})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
                   Status
                 </label>
                 <select
                   value={newAccount.status}
                   onChange={(e: React.ChangeEvent<HTMLSelectElement>) => 
-                    setNewAccount({ ...newAccount, status: e.target.value as 'active' | 'inactive' | 'unused' })
+                    setNewAccount({ 
+                      ...newAccount, 
+                      status: e.target.value as 'active' | 'inactive' | 'unused' | 'locked',
+                      // Reset assigned player if status is changed to something other than active
+                      assignedToPlayerUid: e.target.value === 'active' ? newAccount.assignedToPlayerUid : ''
+                    })
                   }
                   className="appearance-none w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-400 pr-10 bg-no-repeat bg-[length:20px_20px] bg-[position:right_10px_center]"
                   style={{ backgroundImage: dropdownArrowSvg }}
@@ -852,6 +942,7 @@ export default function Accounts() {
                   <option value="active" className="bg-gray-800 text-white">Active</option>
                   <option value="inactive" className="bg-gray-800 text-white">Inactive</option>
                   <option value="unused" className="bg-gray-800 text-white">Unused</option>
+                  <option value="locked" className="bg-gray-800 text-white">Locked</option>
                 </select>
               </div>
 

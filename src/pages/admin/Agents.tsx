@@ -1,13 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { collection, addDoc, getDocs, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
-import { Plus, Users, Trash2, Edit, Save, X, Search, Mail, Phone, CreditCard, Key, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, Users, Trash2, Edit, Save, X, Search, Mail, Phone, CreditCard, Key, ChevronDown, ChevronUp, Eye, EyeOff, Calendar, MapPin, Lock } from 'lucide-react';
 
 interface Agent {
   id: string;
   name: string;
   email: string;
   phone: string;
+  personalEmail: string;
+  dob: string;
+  address: string;
+  last4SSN: string;
   paypalEmail: string;
   paypalPassword: string;
   commissionPercentage: number;
@@ -26,12 +30,19 @@ export default function Agents() {
     name: '',
     email: '',
     phone: '',
+    personalEmail: '',
+    dob: '',
+    address: '',
+    last4SSN: '',
     paypalEmail: '',
     paypalPassword: '',
     commissionPercentage: '',
     flatCommission: ''
   });
   const [loading, setLoading] = useState(true);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showPaypalPassword, setShowPaypalPassword] = useState(false);
+  const [showSSN, setShowSSN] = useState(false);
 
   useEffect(() => {
     fetchAgents();
@@ -41,7 +52,8 @@ export default function Agents() {
     const filtered = agents.filter(agent =>
       agent.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       agent.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      agent.phone.includes(searchTerm)
+      agent.phone.includes(searchTerm) ||
+      agent.personalEmail?.toLowerCase().includes(searchTerm.toLowerCase())
     );
     setFilteredAgents(filtered);
   }, [agents, searchTerm]);
@@ -71,6 +83,10 @@ export default function Agents() {
         name: newAgent.name.trim(),
         email: newAgent.email.trim(),
         phone: newAgent.phone.trim(),
+        personalEmail: newAgent.personalEmail.trim(),
+        dob: newAgent.dob.trim(),
+        address: newAgent.address.trim(),
+        last4SSN: newAgent.last4SSN.trim(),
         paypalEmail: newAgent.paypalEmail.trim(),
         paypalPassword: newAgent.paypalPassword.trim(),
         commissionPercentage: parseFloat(newAgent.commissionPercentage),
@@ -81,6 +97,10 @@ export default function Agents() {
         name: '', 
         email: '', 
         phone: '', 
+        personalEmail: '',
+        dob: '',
+        address: '',
+        last4SSN: '',
         paypalEmail: '', 
         paypalPassword: '', 
         commissionPercentage: '', 
@@ -102,6 +122,10 @@ export default function Agents() {
         name: editingAgent.name.trim(),
         email: editingAgent.email.trim(),
         phone: editingAgent.phone.trim(),
+        personalEmail: editingAgent.personalEmail?.trim() || '',
+        dob: editingAgent.dob?.trim() || '',
+        address: editingAgent.address?.trim() || '',
+        last4SSN: editingAgent.last4SSN?.trim() || '',
         paypalEmail: editingAgent.paypalEmail.trim(),
         paypalPassword: editingAgent.paypalPassword.trim(),
         commissionPercentage: editingAgent.commissionPercentage,
@@ -191,7 +215,7 @@ export default function Agents() {
                 {editingAgent?.id === agent.id ? (
                   <form onSubmit={handleEditAgent} className="space-y-4">
                     <div>
-                      <label className="block text-sm text-gray-400 mb-1">Name</label>
+                      <label className="block text-sm text-gray-400 mb-1">Full Name</label>
                       <input
                         type="text"
                         value={editingAgent.name}
@@ -200,18 +224,31 @@ export default function Agents() {
                         required
                       />
                     </div>
-                    <div>
-                      <label className="block text-sm text-gray-400 mb-1">Email</label>
-                      <input
-                        type="email"
-                        value={editingAgent.email}
-                        onChange={(e) => setEditingAgent({ ...editingAgent, email: e.target.value })}
-                        className="w-full px-3 py-2 bg-white/5 border border-purple-500/20 rounded-lg text-white"
-                        required
-                      />
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm text-gray-400 mb-1">Business Email</label>
+                        <input
+                          type="email"
+                          value={editingAgent.email}
+                          onChange={(e) => setEditingAgent({ ...editingAgent, email: e.target.value })}
+                          className="w-full px-3 py-2 bg-white/5 border border-purple-500/20 rounded-lg text-white"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm text-gray-400 mb-1">Personal Email</label>
+                        <input
+                          type="email"
+                          value={editingAgent.personalEmail || ''}
+                          onChange={(e) => setEditingAgent({ ...editingAgent, personalEmail: e.target.value })}
+                          className="w-full px-3 py-2 bg-white/5 border border-purple-500/20 rounded-lg text-white"
+                        />
+                      </div>
                     </div>
+
                     <div>
-                      <label className="block text-sm text-gray-400 mb-1">Phone</label>
+                      <label className="block text-sm text-gray-400 mb-1">Phone Number</label>
                       <input
                         type="tel"
                         value={editingAgent.phone}
@@ -220,6 +257,54 @@ export default function Agents() {
                         required
                       />
                     </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm text-gray-400 mb-1">Date of Birth</label>
+                        <input
+                          type="date"
+                          value={editingAgent.dob || ''}
+                          onChange={(e) => setEditingAgent({ ...editingAgent, dob: e.target.value })}
+                          className="w-full px-3 py-2 bg-white/5 border border-purple-500/20 rounded-lg text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm text-gray-400 mb-1">Last 4 SSN</label>
+                        <div className="relative">
+                          <input
+                            type={showSSN ? "text" : "password"}
+                            value={editingAgent.last4SSN || ''}
+                            onChange={(e) => setEditingAgent({ ...editingAgent, last4SSN: e.target.value })}
+                            className="w-full px-3 py-2 bg-white/5 border border-purple-500/20 rounded-lg text-white"
+                            maxLength={4}
+                            pattern="\d{4}"
+                            title="Last 4 digits of SSN"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowSSN(!showSSN)}
+                            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white"
+                          >
+                            {showSSN ? (
+                              <EyeOff className="w-4 h-4" />
+                            ) : (
+                              <Eye className="w-4 h-4" />
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm text-gray-400 mb-1">Address</label>
+                      <textarea
+                        value={editingAgent.address || ''}
+                        onChange={(e) => setEditingAgent({ ...editingAgent, address: e.target.value })}
+                        className="w-full px-3 py-2 bg-white/5 border border-purple-500/20 rounded-lg text-white"
+                        rows={2}
+                      />
+                    </div>
+
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm text-gray-400 mb-1">PayPal Email</label>
@@ -233,15 +318,29 @@ export default function Agents() {
                       </div>
                       <div>
                         <label className="block text-sm text-gray-400 mb-1">PayPal Password</label>
-                        <input
-                          type="password"
-                          value={editingAgent.paypalPassword}
-                          onChange={(e) => setEditingAgent({ ...editingAgent, paypalPassword: e.target.value })}
-                          className="w-full px-3 py-2 bg-white/5 border border-purple-500/20 rounded-lg text-white"
-                          required
-                        />
+                        <div className="relative">
+                          <input
+                            type={showPassword ? "text" : "password"}
+                            value={editingAgent.paypalPassword}
+                            onChange={(e) => setEditingAgent({ ...editingAgent, paypalPassword: e.target.value })}
+                            className="w-full px-3 py-2 bg-white/5 border border-purple-500/20 rounded-lg text-white"
+                            required
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white"
+                          >
+                            {showPassword ? (
+                              <EyeOff className="w-4 h-4" />
+                            ) : (
+                              <Eye className="w-4 h-4" />
+                            )}
+                          </button>
+                        </div>
                       </div>
                     </div>
+
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm text-gray-400 mb-1">Commission %</label>
@@ -269,12 +368,12 @@ export default function Agents() {
                             value={editingAgent.flatCommission || 0}
                             onChange={(e) => setEditingAgent({ ...editingAgent, flatCommission: Number(e.target.value) || 0 })}
                             className="w-full px-3 py-2 pr-8 bg-white/5 border border-purple-500/20 rounded-lg text-white"
-                            required
                           />
                           <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400">$</span>
                         </div>
                       </div>
                     </div>
+
                     <div className="flex space-x-2">
                       <button
                         type="submit"
@@ -307,7 +406,11 @@ export default function Agents() {
                       </div>
                       <div className="flex items-center space-x-2">
                         <button
-                          onClick={() => setEditingAgent(agent)}
+                          onClick={() => {
+                            setEditingAgent(agent);
+                            setShowPassword(false);
+                            setShowSSN(false);
+                          }}
                           className="p-2 text-gray-400 hover:text-cyan-400 transition-colors"
                         >
                           <Edit className="w-4 h-4" />
@@ -329,13 +432,33 @@ export default function Agents() {
                       <div className="mt-4 space-y-3">
                         <div className="flex items-center text-sm">
                           <Mail className="w-4 h-4 text-gray-400 mr-2" />
-                          <span className="text-gray-400">Email:</span>{' '}
+                          <span className="text-gray-400">Business Email:</span>{' '}
                           <span className="text-white ml-1 truncate">{agent.email || '-'}</span>
+                        </div>
+                        <div className="flex items-center text-sm">
+                          <Mail className="w-4 h-4 text-gray-400 mr-2" />
+                          <span className="text-gray-400">Personal Email:</span>{' '}
+                          <span className="text-white ml-1 truncate">{agent.personalEmail || '-'}</span>
                         </div>
                         <div className="flex items-center text-sm">
                           <Phone className="w-4 h-4 text-gray-400 mr-2" />
                           <span className="text-gray-400">Phone:</span>{' '}
                           <span className="text-white ml-1">{agent.phone || '-'}</span>
+                        </div>
+                        <div className="flex items-center text-sm">
+                          <Calendar className="w-4 h-4 text-gray-400 mr-2" />
+                          <span className="text-gray-400">DOB:</span>{' '}
+                          <span className="text-white ml-1">{agent.dob || '-'}</span>
+                        </div>
+                        <div className="flex items-center text-sm">
+                          <MapPin className="w-4 h-4 text-gray-400 mr-2" />
+                          <span className="text-gray-400">Address:</span>{' '}
+                          <span className="text-white ml-1 truncate">{agent.address || '-'}</span>
+                        </div>
+                        <div className="flex items-center text-sm">
+                          <Lock className="w-4 h-4 text-gray-400 mr-2" />
+                          <span className="text-gray-400">Last 4 SSN:</span>{' '}
+                          <span className="text-white ml-1">{agent.last4SSN ? '••••' : '-'}</span>
                         </div>
                         <div className="flex items-center text-sm">
                           <CreditCard className="w-4 h-4 text-gray-400 mr-2" />
@@ -388,30 +511,46 @@ export default function Agents() {
             <form onSubmit={handleAddAgent} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Account Holder Name
+                  Full Name
                 </label>
                 <input
                   type="text"
                   value={newAgent.name}
                   onChange={(e) => setNewAgent({ ...newAgent, name: e.target.value })}
                   className="w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-400"
-                  placeholder="Enter account holder name"
+                  placeholder="Enter full name"
                   required
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  value={newAgent.email}
-                  onChange={(e) => setNewAgent({ ...newAgent, email: e.target.value })}
-                  className="w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-400"
-                  placeholder="Enter email"
-                  required
-                />
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Business Email
+                  </label>
+                  <input
+                    type="email"
+                    value={newAgent.email}
+                    onChange={(e) => setNewAgent({ ...newAgent, email: e.target.value })}
+                    className="w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                    placeholder="Business email"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Personal Email
+                  </label>
+                  <input
+                    type="email"
+                    value={newAgent.personalEmail}
+                    onChange={(e) => setNewAgent({ ...newAgent, personalEmail: e.target.value })}
+                    className="w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                    placeholder="Personal email"
+                  />
+                </div>
               </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
                   Phone Number
@@ -425,6 +564,61 @@ export default function Agents() {
                   required
                 />
               </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Date of Birth
+                  </label>
+                  <input
+                    type="date"
+                    value={newAgent.dob}
+                    onChange={(e) => setNewAgent({ ...newAgent, dob: e.target.value })}
+                    className="w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Last 4 SSN
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showSSN ? "text" : "password"}
+                      value={newAgent.last4SSN}
+                      onChange={(e) => setNewAgent({ ...newAgent, last4SSN: e.target.value })}
+                      className="w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                      maxLength={4}
+                      pattern="\d{4}"
+                      title="Last 4 digits of SSN"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowSSN(!showSSN)}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white"
+                    >
+                      {showSSN ? (
+                        <EyeOff className="w-5 h-5" />
+                      ) : (
+                        <Eye className="w-5 h-5" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Address
+                </label>
+                <textarea
+                  value={newAgent.address}
+                  onChange={(e) => setNewAgent({ ...newAgent, address: e.target.value })}
+                  className="w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                  rows={2}
+                  placeholder="Full address"
+                />
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -443,16 +637,30 @@ export default function Agents() {
                   <label className="block text-sm font-medium text-gray-300 mb-2">
                     PayPal Password
                   </label>
-                  <input
-                    type="password"
-                    value={newAgent.paypalPassword}
-                    onChange={(e) => setNewAgent({ ...newAgent, paypalPassword: e.target.value })}
-                    className="w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-400"
-                    placeholder="PayPal password"
-                    required
-                  />
+                  <div className="relative">
+                    <input
+                      type={showPaypalPassword ? "text" : "password"}
+                      value={newAgent.paypalPassword}
+                      onChange={(e) => setNewAgent({ ...newAgent, paypalPassword: e.target.value })}
+                      className="w-full px-4 py-3 bg-white/5 border border-purple-500/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                      placeholder="PayPal password"
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPaypalPassword(!showPaypalPassword)}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white"
+                    >
+                      {showPaypalPassword ? (
+                        <EyeOff className="w-5 h-5" />
+                      ) : (
+                        <Eye className="w-5 h-5" />
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -486,12 +694,12 @@ export default function Agents() {
                       onChange={(e) => setNewAgent({ ...newAgent, flatCommission: e.target.value })}
                       className="w-full px-4 py-3 pr-8 bg-white/5 border border-purple-500/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-400"
                       placeholder="Enter flat commission"
-                      required
                     />
                     <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400">$</span>
                   </div>
                 </div>
               </div>
+
               <div className="flex justify-end space-x-4 mt-6">
                 <button
                   type="button"
